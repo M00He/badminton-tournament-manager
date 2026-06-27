@@ -72,3 +72,20 @@ test_that("generate_round_draw ist deterministisch je Seed und füllt alle Felde
   ids <- unlist(lapply(d1$pairings, function(p) c(p$team1, p$team2)))
   expect_length(unique(ids), 8L)
 })
+
+test_that("score_draw: 1 Team-Wiederholung (Prio 4) wiegt schwerer als viele Einzelgegner (Prio 5)", {
+  rk <- data.frame(player_id = 1:16, rank = 1:16)
+  pairs <- list(
+    list(field = 1L, team1 = c(1L, 9L),  team2 = c(2L, 10L)),
+    list(field = 2L, team1 = c(3L, 11L), team2 = c(4L, 12L)),
+    list(field = 3L, team1 = c(5L, 13L), team2 = c(6L, 14L)),
+    list(field = 4L, team1 = c(7L, 15L), team2 = c(8L, 16L))
+  )
+  # A: genau eine Team-Wiederholung, sonst sauber
+  histA <- list(partner = list(), prev = list(), team = list("1" = "2|10"), opp = list())
+  # B: viele Einzelgegner-Wiederholungen (4 pro Feld x 4 Felder = 16), keine Team-Wiederholung
+  oppB <- list()
+  for (p in pairs) for (a in p$team1) oppB[[as.character(a)]] <- p$team2
+  histB <- list(partner = list(), prev = list(), team = list(), opp = oppB)
+  expect_gt(score_draw(pairs, histA, rk)$penalty, score_draw(pairs, histB, rk)$penalty)
+})

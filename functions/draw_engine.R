@@ -100,7 +100,7 @@ generate_candidate <- function(players, better_half, worse_half, num_fields) {
 }
 
 # Gewichte: Hierarchie über Größenordnungen (höhere Prio dominiert immer)
-.W_PARTNER <- 1e5; .W_PREV <- 1e3; .W_TEAM <- 1e2; .W_OPP <- 1e1; .W_BALANCE <- 1
+.W_PARTNER <- 1e8; .W_PREV <- 1e6; .W_TEAM <- 1e4; .W_OPP <- 1e2; .W_BALANCE <- 1
 
 score_draw <- function(pairings, histories, ranking) {
   partner <- histories$partner; prev <- histories$prev
