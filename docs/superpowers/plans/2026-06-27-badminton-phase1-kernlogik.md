@@ -508,9 +508,12 @@ sets_won_from_scores <- function(t1_sets, t2_sets) {
   if (hi < info$min_points) return(FALSE)
   if (hi > info$max_points) return(FALSE)
   diff <- hi - lo
-  if (hi == info$min_points) return(diff >= info$min_difference)
-  # über min_points: Differenz genau 2 (außer am Deckel max_points)
+  # Am harten Deckel genügt 1 Punkt Differenz (z. B. 15:14, 21:20, 30:29).
+  # Muss VOR der min_points-Prüfung stehen, sonst wird single_30 (min==max==30) falsch verworfen.
   if (hi == info$max_points) return(diff >= 1L)
+  # Exakt bei min_points: regulärer 2-Punkte-Vorsprung nötig.
+  if (hi == info$min_points) return(diff >= info$min_difference)
+  # Deuce-Bereich zwischen min und max: genau 2 Punkte Differenz.
   diff == info$min_difference
 }
 
@@ -963,8 +966,10 @@ Expected: FAIL — `score_draw` fehlt.
 - [ ] **Step 3: Implementierung anhängen**
 
 ```r
-# Gewichte: Hierarchie über Größenordnungen (höhere Prio dominiert immer)
-.W_PARTNER <- 1e5; .W_PREV <- 1e3; .W_TEAM <- 1e2; .W_OPP <- 1e1; .W_BALANCE <- 1
+# Gewichte: Hierarchie über Größenordnungen (höhere Prio dominiert immer).
+# Spreizung ×100, damit eine höher-priore Verletzung die maximale Akkumulation
+# aller nieder-prioren (bis ~4·Felder pro Tier) bei realistischen Feldzahlen (≤10) strikt überwiegt.
+.W_PARTNER <- 1e8; .W_PREV <- 1e6; .W_TEAM <- 1e4; .W_OPP <- 1e2; .W_BALANCE <- 1
 
 score_draw <- function(pairings, histories, ranking) {
   partner <- histories$partner; prev <- histories$prev
@@ -1209,6 +1214,12 @@ git commit -m "feat(state): JSON-Serialisierung und Schema-Migration für Backup
 - [ ] **Vollständiger Testlauf:** `Rscript -e "testthat::test_dir('tests/testthat')"` → alle grün.
 - [ ] **Verifikation:** kurzer manueller Smoke-Test-Skript (`tests/smoke_phase1.R`), das ein 16-Spieler-Turnier über 5 Runden simuliert (Auslosung → Ergebnisse → Rangliste → JSON-Round-Trip) und die Ausgabe druckt.
 - [ ] Phase 1 fertig → **Phase 2 planen** (Persistenz-JS-Bridge, Backup-Download/Upload, `module_setup`/`module_matchday`/`module_ranking`, UI-Flow, gesperrte Runden, Sieger-Ansicht).
+
+### Übergabe-Notizen für Phase 2 (aus dem Whole-Branch-Review)
+- **`jsonlite` als Laufzeit-Abhängigkeit** in der Deployment-`renv.lock` pinnen (neu durch die Serialisierung). In Phase 1 bewusst nicht gemacht (kein lokales renv-Setup).
+- **Alte Module/`app.R` migrieren:** sie referenzieren noch die entfernte/umbenannte namensbasierte API (`game$team1_player1`, `ranking$player`, `generate_round_pairings`, `count_games_per_player`, `get_player_rank`, `calculate_player_stats(games, players=<Namen>)`). Beim Neubau auf die ID-basierte API umstellen. (`functions/tournament_logic.R` + `functions/tournament_save.R` sind bereits entfernt.)
+- **OFFENE PRODUKTFRAGE — Einzelsatz-Wertung:** `t1_points/t2_points` = gewonnene Sätze (Spec §4.1). Bei Einzelsatz-Systemen ist das immer 1:0 → die Ranglisten-`point_diff` kollabiert auf ±1, der echte Punktabstand (z. B. 15:5) geht für die Wertung verloren (anders als in der alten App). Vor Phase 2 mit Moritz klären: Einzelsatz nach Rohpunkten werten? (Rohpunkte liegen in `t1_set1`/`t2_set1` vor.)
+- **`create_ranking`-Tiebreak:** einfacher nicht-stabiler Swap mit nicht-transitivem Direktvergleich; bei einem vollen Round-Robin-Tie-Zyklus (A>B>C>A) möglich falsch geordnet. Für Phase 1 akzeptiert; bei Bedarf später durch echten Komparator-Sort ersetzen.
 
 ## Self-Review-Notiz (Plan-Autor)
 
