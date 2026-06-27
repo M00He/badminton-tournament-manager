@@ -12,6 +12,9 @@ test_that("state_to_json -> state_from_json ist verlustfrei (Round-Trip)", {
   expect_equal(back$current_round, s$current_round)
   expect_equal(back$players, s$players)
   expect_equal(back$games$t1_points, s$games$t1_points)
+  expect_equal(back$games$t1_set2, s$games$t1_set2)   # gespielter Satz bleibt erhalten
+  expect_true(is.na(back$games$t1_set3[1]))           # ungespielter Satz bleibt NA
+  expect_true(is.na(back$games$t2_set3[1]))
 })
 
 test_that("migrate_state hebt alte schema_version an", {
