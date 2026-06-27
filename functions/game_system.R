@@ -37,9 +37,11 @@ sets_won_from_scores <- function(t1_sets, t2_sets) {
   if (hi < info$min_points) return(FALSE)
   if (hi > info$max_points) return(FALSE)
   diff <- hi - lo
-  if (hi == info$min_points) return(diff >= info$min_difference)
-  # über min_points: Differenz genau 2 (außer am Deckel max_points)
+  # Am harten Deckel genügt 1 Punkt Differenz (z. B. 15:14, 21:20, 30:29).
   if (hi == info$max_points) return(diff >= 1L)
+  # Exakt bei min_points: regulärer 2-Punkte-Vorsprung nötig.
+  if (hi == info$min_points) return(diff >= info$min_difference)
+  # Deuce-Bereich zwischen min und max: genau 2 Punkte Differenz.
   diff == info$min_difference
 }
 

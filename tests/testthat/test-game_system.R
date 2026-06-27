@@ -19,3 +19,9 @@ test_that("validate_single_set prüft Mindestpunkte und Differenz", {
   expect_false(validate_single_set(14L, 12L, "single_15")$valid)  # < min
   expect_false(validate_single_set(15L, 15L, "single_15")$valid)  # kein Gewinner
 })
+
+test_that("validate_single_set akzeptiert die Deckel-Scores bei single_30", {
+  expect_true(validate_single_set(30L, 29L, "single_30")$valid)   # Deckel 30:29
+  expect_true(validate_single_set(30L, 28L, "single_30")$valid)
+  expect_false(validate_single_set(29L, 27L, "single_30")$valid)  # Gewinner < 30
+})
