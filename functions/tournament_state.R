@@ -77,3 +77,73 @@ ts_set_player_active <- function(state, player_id, active) {
 ts_active_players <- function(state) {
   state$players[state$players$active %in% TRUE, , drop = FALSE]
 }
+
+ts_start_tournament <- function(state, num_rounds, num_fields, game_system) {
+  if (nrow(ts_active_players(state)) < 4) stop("Mindestens 4 aktive Spieler benötigt.")
+  state$settings <- list(num_rounds = as.integer(num_rounds),
+                         num_fields = as.integer(num_fields),
+                         game_system = game_system)
+  state$current_round <- 1L
+  state$status <- "running"
+  state$games <- empty_games_df()
+  state
+}
+
+ts_set_round_games <- function(state, round, pairings) {
+  round <- as.integer(round)
+  if (any(state$games$round == round & state$games$locked)) {
+    stop("Runde ist gesperrt und kann nicht neu ausgelost werden.")
+  }
+  state$games <- state$games[state$games$round != round, , drop = FALSE]
+  for (p in pairings) {
+    row <- empty_games_df()[1, ]
+    row$game_id <- .next_id(state$games$game_id)
+    row$round <- round; row$field <- as.integer(p$field)
+    row$t1_p1 <- p$team1[1]; row$t1_p2 <- p$team1[2]
+    row$t2_p1 <- p$team2[1]; row$t2_p2 <- p$team2[2]
+    row$locked <- FALSE
+    state$games <- rbind(state$games, row)
+  }
+  state
+}
+
+# t1_sets/t2_sets: Länge-3-Vektoren (Best-of-3) ODER Länge-1 (Einzelsatz).
+ts_save_result <- function(state, game_id, t1_sets, t2_sets) {
+  idx <- which(state$games$game_id == game_id)
+  if (length(idx) == 0) stop("Spiel nicht gefunden.")
+  if (state$games$locked[idx]) stop("Spiel ist gesperrt.")
+  sets <- sets_won_from_scores(t1_sets, t2_sets)
+  state$games$t1_set1[idx] <- t1_sets[1]; state$games$t2_set1[idx] <- t2_sets[1]
+  state$games$t1_set2[idx] <- if (length(t1_sets) >= 2) t1_sets[2] else NA_integer_
+  state$games$t2_set2[idx] <- if (length(t2_sets) >= 2) t2_sets[2] else NA_integer_
+  state$games$t1_set3[idx] <- if (length(t1_sets) >= 3) t1_sets[3] else NA_integer_
+  state$games$t2_set3[idx] <- if (length(t2_sets) >= 3) t2_sets[3] else NA_integer_
+  state$games$t1_points[idx] <- sets[1]
+  state$games$t2_points[idx] <- sets[2]
+  state
+}
+
+ts_lock_round <- function(state, round) {
+  round <- as.integer(round)
+  rows <- state$games$round == round
+  if (!any(rows)) stop("Keine Spiele in dieser Runde.")
+  if (any(is.na(state$games$t1_points[rows]) | is.na(state$games$t2_points[rows]))) {
+    stop("Runde nicht abgeschlossen: es fehlen Ergebnisse.")
+  }
+  state$games$locked[rows] <- TRUE
+  state
+}
+
+ts_advance_round <- function(state) {
+  round <- state$current_round
+  rows <- state$games$round == round
+  if (!any(rows) || !all(state$games$locked[rows])) {
+    stop("Aktuelle Runde nicht abgeschlossen.")
+  }
+  if (round >= state$settings$num_rounds) {
+    state$status <- "finished"
+  } else {
+    state$current_round <- round + 1L
+  }
+  state
+}
