@@ -147,3 +147,45 @@ ts_advance_round <- function(state) {
   }
   state
 }
+
+# ---- Serialisierung & Schema-Migration ---- #
+
+state_to_json <- function(state) {
+  jsonlite::toJSON(state, dataframe = "columns", null = "null",
+                   na = "null", auto_unbox = TRUE, pretty = TRUE)
+}
+
+.as_players_df <- function(x) {
+  if (is.null(x) || length(x) == 0) return(empty_players_df())
+  data.frame(player_id = as.integer(x$player_id), name = as.character(x$name),
+             gender = as.character(x$gender), active = as.logical(x$active),
+             stringsAsFactors = FALSE)
+}
+
+.as_games_df <- function(x) {
+  base <- empty_games_df()
+  if (is.null(x) || length(x) == 0) return(base)
+  cols <- names(base)
+  df <- as.data.frame(lapply(cols, function(cn) {
+    v <- x[[cn]]
+    if (is.null(v)) return(rep(if (cn == "locked") NA else NA_integer_, length(x[[1]])))
+    if (cn == "locked") as.logical(v) else as.integer(v)
+  }), stringsAsFactors = FALSE)
+  names(df) <- cols
+  df
+}
+
+migrate_state <- function(raw) {
+  raw$players <- .as_players_df(raw$players)
+  raw$games   <- .as_games_df(raw$games)
+  raw$current_round <- as.integer(raw$current_round)
+  raw$settings$num_rounds <- as.integer(raw$settings$num_rounds)
+  raw$settings$num_fields <- as.integer(raw$settings$num_fields)
+  raw$schema_version <- SCHEMA_VERSION
+  raw
+}
+
+state_from_json <- function(json) {
+  raw <- jsonlite::fromJSON(json, simplifyVector = TRUE, simplifyDataFrame = FALSE)
+  migrate_state(raw)
+}
