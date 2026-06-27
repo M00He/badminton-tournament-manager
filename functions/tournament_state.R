@@ -75,5 +75,5 @@ ts_set_player_active <- function(state, player_id, active) {
 }
 
 ts_active_players <- function(state) {
-  state$players[isTRUE(state$players$active) | state$players$active, , drop = FALSE]
+  state$players[state$players$active %in% TRUE, , drop = FALSE]
 }

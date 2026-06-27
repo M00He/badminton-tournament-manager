@@ -29,6 +29,7 @@ test_that("ts_rename_player ändert Name/Geschlecht ohne ID-Wechsel", {
   s <- ts_rename_player(s, 1L, "Anna B.", "w")
   expect_equal(s$players$player_id, 1L)
   expect_equal(s$players$name, "Anna B.")
+  expect_equal(nrow(s$players), 1L)
 })
 
 test_that("ts_set_player_active schaltet aktiv/inaktiv; ts_active_players filtert", {
