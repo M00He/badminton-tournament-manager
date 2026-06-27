@@ -52,3 +52,23 @@ test_that("generate_candidate erzeugt vollständige, disjunkte Felder", {
   expect_length(ids, 8L)
   expect_length(unique(ids), 8L)
 })
+
+test_that("score_draw bestraft Partner-Wiederholung am höchsten", {
+  hist <- list(partner = list("1" = 2L), prev = list(), team = list(), opp = list())
+  rk <- data.frame(player_id = 1:8, rank = 1:8)
+  repeat_partner <- list(list(field = 1L, team1 = c(1L, 2L), team2 = c(3L, 4L)))
+  fresh        <- list(list(field = 1L, team1 = c(1L, 5L), team2 = c(3L, 4L)))
+  expect_gt(score_draw(repeat_partner, hist, rk)$penalty,
+            score_draw(fresh, hist, rk)$penalty)
+})
+
+test_that("generate_round_draw ist deterministisch je Seed und füllt alle Felder", {
+  s <- new_tournament_state()
+  for (i in 1:8) s <- ts_add_player(s, paste("P", i), if (i %% 2) "m" else "w")
+  s <- ts_start_tournament(s, 5L, 2L, "best_of_3_11")
+  d1 <- generate_round_draw(s, round = 2L, seed = 42L)
+  d2 <- generate_round_draw(s, round = 2L, seed = 42L)
+  expect_identical(d1$pairings, d2$pairings)
+  ids <- unlist(lapply(d1$pairings, function(p) c(p$team1, p$team2)))
+  expect_length(unique(ids), 8L)
+})
