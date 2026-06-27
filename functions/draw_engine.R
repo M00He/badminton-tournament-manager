@@ -78,11 +78,11 @@ select_round_players <- function(state, round, ranking) {
 }
 
 generate_candidate <- function(players, better_half, worse_half, num_fields) {
+  stopifnot(length(players) >= 4L * num_fields)
   better <- sample(intersect(better_half, players))
   worse  <- sample(intersect(worse_half, players))
   # Auffüllen, falls Hälften unsymmetrisch (z. B. durch Aussetzer)
   pool <- sample(players)
-  take <- function(vec, n) { out <- vec[seq_len(n)]; out }
   pairings <- list()
   bi <- 1L; wi <- 1L
   for (f in seq_len(num_fields)) {
