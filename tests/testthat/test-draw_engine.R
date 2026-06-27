@@ -89,3 +89,31 @@ test_that("score_draw: 1 Team-Wiederholung (Prio 4) wiegt schwerer als viele Ein
   histB <- list(partner = list(), prev = list(), team = list(), opp = oppB)
   expect_gt(score_draw(pairs, histA, rk)$penalty, score_draw(pairs, histB, rk)$penalty)
 })
+
+test_that("18 Spieler / 4 Felder => 16 spielen, 2 setzen aus, alle verschieden", {
+  s <- new_tournament_state()
+  for (i in 1:18) s <- ts_add_player(s, paste("P", i), if (i %% 2) "m" else "w")
+  s <- ts_start_tournament(s, 7L, 4L, "best_of_3_11")
+  d <- generate_round_draw(s, round = 1L, seed = 7L)
+  ids <- unlist(lapply(d$pairings, function(p) c(p$team1, p$team2)))
+  expect_length(ids, 16L)
+  expect_length(unique(ids), 16L)
+  expect_length(d$byes, 2L)
+})
+
+test_that("über mehrere Runden bleibt jeder Spieler genau einmal pro Runde", {
+  s <- new_tournament_state()
+  for (i in 1:8) s <- ts_add_player(s, paste("P", i), if (i %% 2) "m" else "w")
+  s <- ts_start_tournament(s, 5L, 2L, "best_of_3_11")
+  for (rnd in 1:3) {
+    d <- generate_round_draw(s, round = rnd, seed = 100L + rnd)
+    s <- ts_set_round_games(s, rnd, d$pairings)
+    for (gid in s$games$game_id[s$games$round == rnd]) {
+      s <- ts_save_result(s, gid, c(11L, 11L), c(5L, 7L))
+    }
+    s <- ts_lock_round(s, rnd)
+    ids <- unlist(lapply(d$pairings, function(p) c(p$team1, p$team2)))
+    expect_length(unique(ids), length(ids))
+  }
+  succeed()
+})
