@@ -34,13 +34,14 @@ module_ranking_server <- function(id, state_rv) {
         r <- d[i, ]
         tags$tr(
           tags$td(r$rank), tags$td(player_name(s, r$player_id)),
+          tags$td(r$games_played),
           tags$td(r$sets_won), tags$td(paste0(r$match_wins, "/", r$match_losses)),
           tags$td(sprintf("%+d", r$rally_point_diff))
         )
       })
       tags$table(class = "table table-striped",
-        tags$thead(tags$tr(tags$th("Rang"), tags$th("Spieler"), tags$th("Sätze"),
-                           tags$th("S/N"), tags$th("Diff"))),
+        tags$thead(tags$tr(tags$th("Rang"), tags$th("Spieler"), tags$th("Spiele"),
+                           tags$th("Sätze"), tags$th("S/N"), tags$th("Diff"))),
         tags$tbody(rows))
     })
 

@@ -3,17 +3,17 @@
 get_game_system_info <- function(system_type) {
   systems <- list(
     best_of_3_11 = list(name = "Zwei Gewinnsätze bis 11",
-      description = "Best of 3, Sätze bis 11 (2 Pkt. Differenz, max 15:14)",
-      min_points = 11L, min_difference = 2L, max_points = 15L, is_best_of_3 = TRUE),
+      description = "Best of 3, Sätze bis 11 (Sieger ab 11, Verlängerung möglich)",
+      min_points = 11L, is_best_of_3 = TRUE),
     single_15 = list(name = "Ein Satz bis 15",
-      description = "Ein Satz bis 15 (2 Pkt. Differenz, max 21:20)",
-      min_points = 15L, min_difference = 2L, max_points = 21L, is_best_of_3 = FALSE),
+      description = "Ein Satz bis 15 (Sieger ab 15, Verlängerung möglich)",
+      min_points = 15L, is_best_of_3 = FALSE),
     single_21 = list(name = "Ein Satz bis 21",
-      description = "Ein Satz bis 21 (2 Pkt. Differenz, max 30:29)",
-      min_points = 21L, min_difference = 2L, max_points = 30L, is_best_of_3 = FALSE),
+      description = "Ein Satz bis 21 (Sieger ab 21, Verlängerung möglich)",
+      min_points = 21L, is_best_of_3 = FALSE),
     single_30 = list(name = "Ein Satz bis 30",
-      description = "Ein Satz bis 30 (max 30:29)",
-      min_points = 30L, min_difference = 2L, max_points = 30L, is_best_of_3 = FALSE)
+      description = "Ein Satz bis 30 (Sieger ab 30, Verlängerung möglich)",
+      min_points = 30L, is_best_of_3 = FALSE)
   )
   systems[[system_type]]
 }
@@ -34,15 +34,10 @@ sets_won_from_scores <- function(t1_sets, t2_sets) {
 }
 
 .valid_set_score <- function(hi, lo, info) {
-  if (hi < info$min_points) return(FALSE)
-  if (hi > info$max_points) return(FALSE)
-  diff <- hi - lo
-  # Am harten Deckel genügt 1 Punkt Differenz (z. B. 15:14, 21:20, 30:29).
-  if (hi == info$max_points) return(diff >= 1L)
-  # Exakt bei min_points: regulärer 2-Punkte-Vorsprung nötig.
-  if (hi == info$min_points) return(diff >= info$min_difference)
-  # Deuce-Bereich zwischen min und max: genau 2 Punkte Differenz.
-  diff == info$min_difference
+  # Hausregel: der Sieger muss das Ziel (min_points) ERREICHEN und vorn liegen
+  # (hi > lo stellt der Aufrufer sicher). Kein 2-Punkte-Mindestabstand, kein Deckel —
+  # eine Verlängerung (z. B. 15:14, 17:16, 21:20) ist erlaubt.
+  hi >= info$min_points
 }
 
 validate_single_set <- function(points1, points2, system_type) {
@@ -54,7 +49,8 @@ validate_single_set <- function(points1, points2, system_type) {
     return(list(valid = FALSE, message = "Es muss einen Gewinner geben."))
   hi <- max(points1, points2); lo <- min(points1, points2)
   if (!.valid_set_score(hi, lo, info))
-    return(list(valid = FALSE, message = "Ergebnis verletzt die Systemregeln."))
+    return(list(valid = FALSE,
+                message = paste0("Der Gewinner muss mindestens ", info$min_points, " Punkte erreichen.")))
   list(valid = TRUE, message = "")
 }
 
