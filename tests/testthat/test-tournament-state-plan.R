@@ -32,6 +32,7 @@ test_that("ts_start_tournament Default bleibt round_by_round (rueckwaertskompati
   expect_equal(s$settings$schedule_mode, "round_by_round")
   expect_null(s$settings$plan_field_sequence)
   expect_equal(s$settings$num_rounds, 5L)
+  expect_equal(s$settings$num_fields, 2L)
 })
 
 test_that("migrate_state: altes Backup ohne schedule_mode -> round_by_round; Plan-Folge -> integer", {
@@ -56,4 +57,10 @@ test_that("Serialisierung erhaelt schedule_mode + plan_field_sequence (Round-Tri
   back <- state_from_json(state_to_json(s))
   expect_equal(back$settings$schedule_mode, "plan")
   expect_equal(back$settings$plan_field_sequence, c(2L,2L,2L,1L,1L))
+})
+
+test_that("ts_start_tournament Plan-Modus lehnt 1-Runden-Folge ab", {
+  s <- mk_players(8)
+  expect_error(ts_start_tournament(s, 99L, 99L, "best_of_3_11", "diff_first",
+                                   schedule_mode = "plan", plan_field_sequence = c(2L)))
 })

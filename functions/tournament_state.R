@@ -100,11 +100,14 @@ ts_start_tournament <- function(state, num_rounds, num_fields, game_system,
                                 plan_field_sequence = NULL) {
   if (nrow(ts_active_players(state)) < 4) stop("Mindestens 4 aktive Spieler benötigt.")
   stopifnot(tiebreaker_order %in% c("diff_first", "direct_first"))
-  stopifnot(schedule_mode %in% c("plan", "round_by_round"))
+  if (!schedule_mode %in% c("plan", "round_by_round"))
+    stop("schedule_mode muss 'plan' oder 'round_by_round' sein.")
   if (identical(schedule_mode, "plan")) {
     if (is.null(plan_field_sequence) || length(plan_field_sequence) == 0)
       stop("Voraus-Plan benötigt eine Felder-Folge.")
     plan_field_sequence <- as.integer(plan_field_sequence)
+    if (length(plan_field_sequence) < 2L)
+      stop("Voraus-Plan braucht mindestens 2 Runden.")
     num_rounds <- length(plan_field_sequence)
     num_fields <- max(plan_field_sequence)
   } else {
