@@ -246,3 +246,30 @@ test_that("reoptimize_tail bleibt valide und nie schlechter", {
   # gespielte Runde 1 unveraendert
   expect_equal(best[[1]], current[[1]])   # gespielte Runde 1 vollstaendig unveraendert
 })
+
+test_that("schedule_balance_penalty: leerer Tail (alle Runden gespielt) -> 0 statt Absturz", {
+  players <- 1:8
+  fs <- field_sequence_for(8L, 2L, 5L)
+  sched <- generate_schedule(players, fs, seed = 1L)
+  strength <- setNames(c(1,2,3,4,9,8,7,6), as.character(1:8))
+  expect_equal(schedule_balance_penalty(sched, strength, from_round = length(sched) + 1L), 0)
+})
+
+test_that("reoptimize_tail: alle Runden gespielt -> gibt Incumbent zurueck (kein Absturz)", {
+  players <- 1:8
+  fs <- field_sequence_for(8L, 2L, 5L)
+  current <- generate_schedule(players, fs, seed = 1L)
+  strength <- setNames(c(1,2,3,4,9,8,7,6), as.character(1:8))
+  best <- reoptimize_tail(players, fs, played_rounds = current, strength = strength,
+                          current_schedule = current, n_candidates = 5L, seed = 3L)
+  expect_identical(best, current)
+})
+
+test_that("verify_schedule: falscher field_count wird erkannt", {
+  players <- 1:4
+  bad <- list(list(field_count = 99L, byes = integer(0),
+    games = list(list(field = 1L, team1 = c(1L,2L), team2 = c(3L,4L)))))
+  v <- verify_schedule(bad, players)
+  expect_false(v$ok)
+  expect_true(any(grepl("field_count", v$errors)))
+})

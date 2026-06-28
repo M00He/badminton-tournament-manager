@@ -32,6 +32,8 @@ verify_schedule <- function(schedule, players) {
     expected_bye <- setdiff(players, round_players)
     if (!setequal(rd$byes, expected_bye))
       errors <- c(errors, sprintf("Runde %d: Pausen stimmen nicht", r))
+    if (!is.null(rd$field_count) && rd$field_count != length(rd$games))
+      errors <- c(errors, sprintf("Runde %d: field_count passt nicht zur Spielanzahl", r))
   }
 
   repeats <- names(partner_seen)[vapply(partner_seen, function(x) x > 1L, logical(1))]
@@ -168,10 +170,10 @@ generate_schedule <- function(players, field_sequence, locked_rounds = NULL,
         lr <- locked_rounds[[r]]
         for (gm in lr$games) {
           a <- to_idx(gm$team1[1]); b <- to_idx(gm$team1[2])
-          c <- to_idx(gm$team2[1]); d <- to_idx(gm$team2[2])
+          pc <- to_idx(gm$team2[1]); d <- to_idx(gm$team2[2])
           partner_used[a, b] <- partner_used[b, a] <- TRUE
-          partner_used[c, d] <- partner_used[d, c] <- TRUE
-          games_cnt[c(a, b, c, d)] <- games_cnt[c(a, b, c, d)] + 1L
+          partner_used[pc, d] <- partner_used[d, pc] <- TRUE
+          games_cnt[c(a, b, pc, d)] <- games_cnt[c(a, b, pc, d)] + 1L
         }
         if (length(lr$byes)) {
           bi <- to_idx(lr$byes); byes_cnt[bi] <- byes_cnt[bi] + 1L
@@ -223,7 +225,8 @@ generate_schedule <- function(players, field_sequence, locked_rounds = NULL,
 schedule_balance_penalty <- function(schedule, strength, from_round = 1L) {
   med <- stats::median(strength)
   pen <- 0
-  for (r in seq(from_round, length(schedule))) {
+  rounds_to_score <- if (from_round > length(schedule)) integer(0) else seq.int(from_round, length(schedule))
+  for (r in rounds_to_score) {
     rd <- schedule[[r]]; if (is.null(rd)) next
     for (gm in rd$games) {
       for (tm in list(gm$team1, gm$team2)) {
