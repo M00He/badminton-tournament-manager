@@ -218,3 +218,36 @@ generate_schedule <- function(players, field_sequence, locked_rounds = NULL,
   }
   NULL
 }
+
+# Stark+schwach-Strafe: +1 je Team, dessen beide Spieler auf derselben Median-Seite liegen.
+schedule_balance_penalty <- function(schedule, strength, from_round = 1L) {
+  med <- stats::median(strength)
+  pen <- 0
+  for (r in seq(from_round, length(schedule))) {
+    rd <- schedule[[r]]; if (is.null(rd)) next
+    for (gm in rd$games) {
+      for (tm in list(gm$team1, gm$team2)) {
+        s1 <- strength[as.character(tm[1])]; s2 <- strength[as.character(tm[2])]
+        if (isTRUE((s1 <= med) == (s2 <= med))) pen <- pen + 1
+      }
+    }
+  }
+  pen
+}
+
+# Wählt unter gültigen Rest-Completions die beste für die aktuelle Tabelle.
+# current_schedule ist immer Kandidat -> Ergebnis nie schlechter.
+reoptimize_tail <- function(players, field_sequence, played_rounds, strength,
+                            current_schedule, n_candidates = 300L, seed = 1L) {
+  n_played <- length(played_rounds)
+  best <- current_schedule
+  best_pen <- schedule_balance_penalty(best, strength, from_round = n_played + 1L)
+  for (i in seq_len(n_candidates)) {
+    cand <- generate_schedule(players, field_sequence, locked_rounds = played_rounds,
+                              seed = seed + i)
+    if (is.null(cand)) next
+    pen <- schedule_balance_penalty(cand, strength, from_round = n_played + 1L)
+    if (pen < best_pen) { best <- cand; best_pen <- pen }
+  }
+  best
+}

@@ -214,3 +214,35 @@ test_that("generate_schedule: gestrandete Spieler -> keine Completion -> NULL", 
                              seed = 1L, max_restarts = 200L)
   expect_null(sched)
 })
+
+test_that("schedule_balance_penalty zaehlt unbalancierte Teams", {
+  # Staerke: 1..4 schwach, 5..8 stark
+  strength <- setNames(c(1,1,1,1,9,9,9,9), as.character(1:8))
+  good <- list(list(field_count = 2L, byes = integer(0), games = list(
+    list(field = 1L, team1 = c(1L, 5L), team2 = c(2L, 6L)),   # je stark+schwach
+    list(field = 2L, team1 = c(3L, 7L), team2 = c(4L, 8L)))))
+  bad <- list(list(field_count = 2L, byes = integer(0), games = list(
+    list(field = 1L, team1 = c(1L, 2L), team2 = c(5L, 6L)),   # je gleiche Seite
+    list(field = 2L, team1 = c(3L, 4L), team2 = c(7L, 8L)))))
+  expect_equal(schedule_balance_penalty(good, strength), 0)
+  expect_gt(schedule_balance_penalty(bad, strength), 0)
+})
+
+test_that("reoptimize_tail bleibt valide und nie schlechter", {
+  players <- 1:8
+  fs <- field_sequence_for(8L, 2L, 5L)
+  current <- generate_schedule(players, fs, seed = 1L)
+  expect_false(is.null(current))
+  strength <- setNames(c(1,2,3,4,9,8,7,6), as.character(1:8))
+  played <- list(current[[1]])                      # Runde 1 gilt als gespielt
+  best <- reoptimize_tail(players, fs, played, strength, current,
+                          n_candidates = 50L, seed = 10L)
+  v <- verify_schedule(best, players)
+  expect_true(v$ok)
+  # nie schlechter als der Ausgangsplan auf dem Rest
+  p_cur  <- schedule_balance_penalty(current, strength, from_round = 2L)
+  p_best <- schedule_balance_penalty(best,    strength, from_round = 2L)
+  expect_lte(p_best, p_cur)
+  # gespielte Runde 1 unveraendert
+  expect_equal(best[[1]]$games[[1]]$team1, current[[1]]$games[[1]]$team1)
+})
