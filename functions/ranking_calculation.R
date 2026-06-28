@@ -1,30 +1,38 @@
-# Rangliste — ID-basiert
+# Rangliste — ID-basiert, Wertung nach gewonnenen Sätzen + konfigurierbarer Tiebreaker
 
 calculate_player_stats <- function(games, player_ids) {
-  stats <- data.frame(player_id = player_ids, games_played = 0L, wins = 0L,
-                      losses = 0L, points_for = 0L, points_against = 0L,
-                      point_diff = 0L, stringsAsFactors = FALSE)
+  stats <- data.frame(
+    player_id = player_ids, games_played = 0L,
+    match_wins = 0L, match_losses = 0L,
+    sets_won = 0L, sets_lost = 0L,
+    rally_points_for = 0L, rally_points_against = 0L,
+    rally_point_diff = 0L, stringsAsFactors = FALSE
+  )
   if (nrow(games) == 0) return(stats)
   for (i in seq_len(nrow(games))) {
     g <- games[i, ]
     if (is.na(g$t1_points) || is.na(g$t2_points)) next
     t1 <- c(g$t1_p1, g$t1_p2); t2 <- c(g$t2_p1, g$t2_p2)
     t1_won <- g$t1_points > g$t2_points
-    upd <- function(stats, ids, pf, pa, won) {
+    t1_rally <- sum(g$t1_set1, g$t1_set2, g$t1_set3, na.rm = TRUE)
+    t2_rally <- sum(g$t2_set1, g$t2_set2, g$t2_set3, na.rm = TRUE)
+    upd <- function(stats, ids, sets_w, sets_l, rally_f, rally_a, won) {
       for (id in ids) {
         k <- which(stats$player_id == id); if (!length(k)) next
         stats$games_played[k] <- stats$games_played[k] + 1L
-        stats$points_for[k]   <- stats$points_for[k] + pf
-        stats$points_against[k] <- stats$points_against[k] + pa
-        if (won) stats$wins[k] <- stats$wins[k] + 1L
-        else stats$losses[k] <- stats$losses[k] + 1L
+        stats$sets_won[k] <- stats$sets_won[k] + sets_w
+        stats$sets_lost[k] <- stats$sets_lost[k] + sets_l
+        stats$rally_points_for[k] <- stats$rally_points_for[k] + rally_f
+        stats$rally_points_against[k] <- stats$rally_points_against[k] + rally_a
+        if (won) stats$match_wins[k] <- stats$match_wins[k] + 1L
+        else stats$match_losses[k] <- stats$match_losses[k] + 1L
       }
       stats
     }
-    stats <- upd(stats, t1, g$t1_points, g$t2_points, t1_won)
-    stats <- upd(stats, t2, g$t2_points, g$t1_points, !t1_won)
+    stats <- upd(stats, t1, g$t1_points, g$t2_points, t1_rally, t2_rally, t1_won)
+    stats <- upd(stats, t2, g$t2_points, g$t1_points, t2_rally, t1_rally, !t1_won)
   }
-  stats$point_diff <- stats$points_for - stats$points_against
+  stats$rally_point_diff <- stats$rally_points_for - stats$rally_points_against
   stats
 }
 
@@ -43,19 +51,32 @@ get_direct_comparison <- function(id1, id2, games) {
   if (w1 > w2) 1L else if (w2 > w1) -1L else 0L
 }
 
-create_ranking <- function(games, player_ids) {
+create_ranking <- function(games, player_ids, tiebreaker_order = "diff_first") {
+  stopifnot(tiebreaker_order %in% c("diff_first", "direct_first"))
   stats <- calculate_player_stats(games, player_ids)
   if (nrow(stats) == 0) { stats$rank <- integer(); return(stats) }
-  stats <- stats[order(-stats$wins, -stats$point_diff), ]
-  n <- nrow(stats)
-  if (n > 1) for (i in 1:(n - 1)) for (j in (i + 1):n) {
-    if (stats$wins[i] == stats$wins[j] && stats$point_diff[i] == stats$point_diff[j]) {
-      if (get_direct_comparison(stats$player_id[i], stats$player_id[j], games) < 0) {
-        tmp <- stats[i, ]; stats[i, ] <- stats[j, ]; stats[j, ] <- tmp
-      }
+  # Basis-Ordnung: gewonnene Sätze, dann Punktedifferenz (stabiler Start)
+  stats <- stats[order(-stats$sets_won, -stats$rally_point_diff), ]
+  # Paarweise Verfeinerung: gibt TRUE, wenn Zeile a vor Zeile b stehen soll
+  better <- function(a, b) {
+    if (a$sets_won != b$sets_won) return(a$sets_won > b$sets_won)
+    dc <- get_direct_comparison(a$player_id, b$player_id, games)
+    diff_better <- a$rally_point_diff > b$rally_point_diff
+    diff_equal  <- a$rally_point_diff == b$rally_point_diff
+    if (tiebreaker_order == "diff_first") {
+      if (!diff_equal) return(diff_better)
+      return(dc > 0)
+    } else {
+      if (dc != 0) return(dc > 0)
+      return(diff_better)
     }
   }
+  n <- nrow(stats)
+  if (n > 1) for (i in 1:(n - 1)) for (j in (i + 1):n) {
+    if (better(stats[j, ], stats[i, ])) { tmp <- stats[i, ]; stats[i, ] <- stats[j, ]; stats[j, ] <- tmp }
+  }
   stats$rank <- seq_len(nrow(stats))
-  stats[, c("rank", "player_id", "games_played", "wins", "losses",
-            "points_for", "points_against", "point_diff")]
+  stats[, c("rank", "player_id", "games_played", "sets_won", "sets_lost",
+            "match_wins", "match_losses", "rally_points_for",
+            "rally_points_against", "rally_point_diff")]
 }
