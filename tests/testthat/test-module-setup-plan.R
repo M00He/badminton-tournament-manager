@@ -40,3 +40,13 @@ test_that("module_setup: Rundenweise-Modus startet wie bisher", {
     expect_null(s$settings$plan_field_sequence)
   })
 })
+
+test_that("module_setup: plan_info rendert ohne Fehler wenn plan_rounds noch nicht gesetzt ist", {
+  rv <- reactiveVal(mk_players(14))
+  testServer(module_setup_server, args = list(state_rv = rv), {
+    session$setInputs(schedule_mode = "plan", num_fields = 3,
+                      game_system = "best_of_3_11", tiebreaker = "diff_first")
+    # plan_rounds bewusst NICHT gesetzt -> as.integer(NULL) = integer(0)
+    expect_error(output$plan_info, NA)            # rendert ohne Fehler (Fallback-Text)
+  })
+})

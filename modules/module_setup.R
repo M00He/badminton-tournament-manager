@@ -72,7 +72,7 @@ module_setup_server <- function(id, state_rv) {
     output$plan_info <- renderUI({
       P <- nrow(ts_active_players(state_rv())); Fm <- input$num_fields
       R <- suppressWarnings(as.integer(input$plan_rounds))
-      if (is.null(Fm) || is.na(Fm) || P < 4 || is.na(R)) return(em("Spieler & Felder wählen."))
+      if (is.null(Fm) || is.na(Fm) || P < 4 || length(R) == 0 || is.na(R)) return(em("Spieler & Felder wählen."))
       fs <- field_sequence_for(as.integer(P), as.integer(Fm), R)
       if (is.null(fs)) return(em("Für diese Kombination gibt es keinen gültigen Plan."))
       G <- sum(4L * fs) %/% P
@@ -137,7 +137,7 @@ module_setup_server <- function(id, state_rv) {
         if (identical(mode, "plan")) {
           P <- nrow(ts_active_players(s)); Fm <- as.integer(input$num_fields)
           R <- suppressWarnings(as.integer(input$plan_rounds))
-          if (is.na(R) || length(R) == 0) stop("Bitte eine Rundenzahl wählen.")
+          if (length(R) == 0 || is.na(R)) stop("Bitte eine Rundenzahl wählen.")
           fs <- field_sequence_for(P, Fm, R)
           if (is.null(fs)) stop("Für diese Kombination gibt es keinen gültigen Plan.")
           state_rv(ts_start_tournament(state_rv(), R, Fm, input$game_system, input$tiebreaker,
