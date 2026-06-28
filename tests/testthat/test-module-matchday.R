@@ -51,3 +51,46 @@ test_that("module_matchday: ab Runde 2 Vorschau erzeugen + übernehmen (kein Sch
     expect_equal(nrow(g), 2L)
   })
 })
+
+test_that("module_matchday: gültiges Ergebnis speichern setzt Sätze, Lock + Advance", {
+  rv <- reactiveVal(mk_started(8, 2))
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(preview = 1); session$setInputs(accept = 1)
+    gids <- rv()$games$game_id[rv()$games$round == 1]
+    for (gid in gids) {
+      args_list <- setNames(
+        list(11, 11, NA, 5, 7, NA, 1),
+        c(paste0("t1s1_", gid), paste0("t1s2_", gid), paste0("t1s3_", gid),
+          paste0("t2s1_", gid), paste0("t2s2_", gid), paste0("t2s3_", gid),
+          paste0("save_", gid))
+      )
+      do.call(session$setInputs, args_list)
+      save_args <- list(save_game = gid)
+      do.call(session$setInputs, save_args)
+    }
+    expect_true(all(!is.na(rv()$games$t1_points[rv()$games$round == 1])))
+    session$setInputs(lock_round = 1)
+    expect_true(all(rv()$games$locked[rv()$games$round == 1]))
+    session$setInputs(next_round = 1)
+    expect_equal(rv()$current_round, 2L)
+  })
+})
+
+test_that("module_matchday: ungültiges Ergebnis wird blockiert", {
+  rv <- reactiveVal(mk_started(4, 1))
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(preview = 1); session$setInputs(accept = 1)
+    gid <- rv()$games$game_id[1]
+    # 11:11 in beiden Sätzen -> kein Gewinner -> ungültig
+    args_list <- setNames(
+      list(11, 11, NA, 11, 11, NA, 1),
+      c(paste0("t1s1_", gid), paste0("t1s2_", gid), paste0("t1s3_", gid),
+        paste0("t2s1_", gid), paste0("t2s2_", gid), paste0("t2s3_", gid),
+        paste0("save_", gid))
+    )
+    do.call(session$setInputs, args_list)
+    save_args <- list(save_game = gid)
+    do.call(session$setInputs, save_args)
+    expect_true(is.na(rv()$games$t1_points[rv()$games$game_id == gid]))  # nicht gespeichert
+  })
+})

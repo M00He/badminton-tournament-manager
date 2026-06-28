@@ -134,8 +134,81 @@ module_matchday_server <- function(id, state_rv) {
         })))
     })
 
-    # Feld-Anzeige + Ergebniseingabe + Lock/Advance: Task 4 ersetzt die nächste Zeile
-    output$fields <- renderUI(NULL)
+    # Feld-Anzeige + Ergebniseingabe + Lock/Advance
+    is_best_of_3 <- reactive({
+      info <- get_game_system_info(state_rv()$settings$game_system)
+      !is.null(info) && info$is_best_of_3
+    })
+
+    output$fields <- renderUI({
+      g <- cur_round_games()
+      if (nrow(g) == 0) return(div(style = "margin-top:10px;", em("Noch keine Auslosung übernommen.")))
+      s <- state_rv()
+      bo3 <- is_best_of_3()
+      tagList(lapply(seq_len(nrow(g)), function(i) {
+        x <- g[i, ]; gid <- x$game_id; locked <- isTRUE(x$locked)
+        num <- function(suffix, val) numericInput(ns(paste0(suffix, "_", gid)), NULL,
+          value = if (is.na(val)) NA else val, min = 0, width = "70px")
+        team_inputs <- function(side) {
+          if (bo3) {
+            tagList(num(paste0(side, "s1"), x[[paste0(side, "_set1")]]),
+                    num(paste0(side, "s2"), x[[paste0(side, "_set2")]]),
+                    num(paste0(side, "s3"), x[[paste0(side, "_set3")]]))
+          } else {
+            num(paste0(side, "s1"), x[[paste0(side, "_set1")]])
+          }
+        }
+        card(
+          card_header(sprintf("Feld %d%s", x$field, if (locked) " (gesperrt)" else "")),
+          fluidRow(
+            column(5, strong(paste(player_name(s, x$t1_p1), "&", player_name(s, x$t1_p2))),
+                   if (!locked) team_inputs("t1") else span(sprintf(" — %d Sätze", x$t1_points))),
+            column(2, div(style = "text-align:center;padding-top:20px;", "vs")),
+            column(5, strong(paste(player_name(s, x$t2_p1), "&", player_name(s, x$t2_p2))),
+                   if (!locked) team_inputs("t2") else span(sprintf(" — %d Sätze", x$t2_points)))
+          ),
+          if (!locked) actionButton(ns(paste0("save_", gid)), "Speichern", class = "btn-primary btn-sm",
+            onclick = sprintf("Shiny.setInputValue('%s', %d, {priority:'event'})", ns("save_game"), gid))
+        )
+      }))
+    })
+
+    read_sets <- function(gid, side) {
+      if (is_best_of_3()) {
+        c(input[[paste0(side, "s1_", gid)]], input[[paste0(side, "s2_", gid)]],
+          input[[paste0(side, "s3_", gid)]])
+      } else {
+        input[[paste0(side, "s1_", gid)]]
+      }
+    }
+
+    observeEvent(input$save_game, {
+      gid <- as.integer(input$save_game); s <- state_rv()
+      sys <- s$settings$game_system
+      t1 <- as.integer(read_sets(gid, "t1")); t2 <- as.integer(read_sets(gid, "t2"))
+      val <- if (is_best_of_3()) validate_best_of_3(t1, t2, sys) else validate_single_set(t1[1], t2[1], sys)
+      if (!val$valid) { showNotification(val$message, type = "warning"); return() }
+      tryCatch({
+        state_rv(ts_save_result(state_rv(), gid, t1, t2))
+        showNotification("Ergebnis gespeichert.", type = "message")
+      }, error = function(e) showNotification(conditionMessage(e), type = "error"))
+    })
+
+    observeEvent(input$lock_round, {
+      tryCatch({
+        state_rv(ts_lock_round(state_rv(), state_rv()$current_round))
+        showNotification("Runde abgeschlossen.", type = "message")
+      }, error = function(e) showNotification(conditionMessage(e), type = "warning"))
+    })
+
+    observeEvent(input$next_round, {
+      tryCatch({
+        before <- state_rv()$current_round
+        state_rv(ts_advance_round(state_rv()))
+        if (state_rv()$status == "finished")
+          showNotification("Turnier beendet! Siehe Rangliste.", type = "message")
+      }, error = function(e) showNotification(conditionMessage(e), type = "warning"))
+    })
   })
 }
 
