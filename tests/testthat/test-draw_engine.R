@@ -62,6 +62,15 @@ test_that("score_draw bestraft Partner-Wiederholung am höchsten", {
             score_draw(fresh, hist, rk)$penalty)
 })
 
+test_that("generate_round_draw respektiert n_fields-Override (weniger Felder diese Runde)", {
+  s <- new_tournament_state()
+  for (i in 1:8) s <- ts_add_player(s, paste("P", i), if (i %% 2) "m" else "w")
+  s <- ts_start_tournament(s, 5L, 2L, "best_of_3_11")   # Einstellung: 2 Felder
+  d <- generate_round_draw(s, 2L, seed = 1L, n_fields = 1L)
+  expect_equal(length(d$pairings), 1L)
+  expect_equal(length(d$byes), 4L)                       # 8 Spieler, 1 Feld -> 4 spielen, 4 aus
+})
+
 test_that("generate_round_draw ist deterministisch je Seed und füllt alle Felder", {
   s <- new_tournament_state()
   for (i in 1:8) s <- ts_add_player(s, paste("P", i), if (i %% 2) "m" else "w")

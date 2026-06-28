@@ -90,18 +90,22 @@ module_ranking_server <- function(id, state_rv) {
       g <- s$games[s$games$game_id == gid, ]
       if (nrow(g) == 0) return()
       bo3 <- isTRUE(get_game_system_info(s$settings$game_system)$is_best_of_3)
+      pl <- ts_active_players(s)
+      pchoices <- setNames(as.character(pl$player_id), pl$name)
       num <- function(idsuf, val) numericInput(ns(idsuf), NULL,
         value = if (is.na(val)) NA else val, min = 0, width = "80px")
-      t1 <- if (bo3) tagList(num("edit_t1s1", g$t1_set1), num("edit_t1s2", g$t1_set2), num("edit_t1s3", g$t1_set3))
-            else num("edit_t1s1", g$t1_set1)
-      t2 <- if (bo3) tagList(num("edit_t2s1", g$t2_set1), num("edit_t2s2", g$t2_set2), num("edit_t2s3", g$t2_set3))
-            else num("edit_t2s1", g$t2_set1)
+      psel <- function(idsuf, cur) selectInput(ns(idsuf), NULL, choices = pchoices, selected = as.character(cur))
+      sets_in <- function(side) if (bo3)
+        tagList(num(paste0("edit_", side, "s1"), g[[paste0(side, "_set1")]]),
+                num(paste0("edit_", side, "s2"), g[[paste0(side, "_set2")]]),
+                num(paste0("edit_", side, "s3"), g[[paste0(side, "_set3")]]))
+        else num(paste0("edit_", side, "s1"), g[[paste0(side, "_set1")]])
       session$userData$edit_gid <- gid
       showModal(modalDialog(
-        title = sprintf("Ergebnis bearbeiten — Runde %d, Feld %d", g$round, g$field),
+        title = sprintf("Spiel bearbeiten — Runde %d, Feld %d", g$round, g$field),
         fluidRow(
-          column(6, strong(paste(player_name(s, g$t1_p1), "&", player_name(s, g$t1_p2))), t1),
-          column(6, strong(paste(player_name(s, g$t2_p1), "&", player_name(s, g$t2_p2))), t2)),
+          column(6, strong("Team 1"), psel("edit_p_t1p1", g$t1_p1), psel("edit_p_t1p2", g$t1_p2), sets_in("t1")),
+          column(6, strong("Team 2"), psel("edit_p_t2p1", g$t2_p1), psel("edit_p_t2p2", g$t2_p2), sets_in("t2"))),
         footer = tagList(modalButton("Abbrechen"),
                          actionButton(ns("confirm_edit_game"), "Speichern", class = "btn-primary"))
       ))
@@ -113,6 +117,14 @@ module_ranking_server <- function(id, state_rv) {
       sys <- state_rv()$settings$game_system
       bo3 <- isTRUE(get_game_system_info(sys)$is_best_of_3)
       rd <- function(idsuf) { v <- input[[idsuf]]; if (is.null(v)) NA_integer_ else as.integer(v) }
+      pr <- function(idsuf) { v <- input[[idsuf]]; if (is.null(v) || v == "") NA_integer_ else as.integer(v) }
+      # Spieler (falls geändert) übernehmen
+      t1p <- c(pr("edit_p_t1p1"), pr("edit_p_t1p2")); t2p <- c(pr("edit_p_t2p1"), pr("edit_p_t2p2"))
+      if (!any(is.na(c(t1p, t2p)))) {
+        ok <- tryCatch({ state_rv(ts_set_game_players(state_rv(), gid, t1p, t2p)); TRUE },
+                       error = function(e) { showNotification(conditionMessage(e), type = "warning"); FALSE })
+        if (!isTRUE(ok)) return()
+      }
       if (bo3) {
         t1 <- c(rd("edit_t1s1"), rd("edit_t1s2"), rd("edit_t1s3"))
         t2 <- c(rd("edit_t2s1"), rd("edit_t2s2"), rd("edit_t2s3"))
@@ -125,7 +137,7 @@ module_ranking_server <- function(id, state_rv) {
         state_rv(ts_edit_result(state_rv(), gid, t1, t2))
         session$userData$edit_gid <- NULL
         removeModal()
-        showNotification("Ergebnis aktualisiert.", type = "message")
+        showNotification("Spiel aktualisiert.", type = "message")
       }, error = function(e) showNotification(conditionMessage(e), type = "error"))
     })
   })

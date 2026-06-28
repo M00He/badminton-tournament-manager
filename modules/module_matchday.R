@@ -20,6 +20,13 @@ module_matchday_server <- function(id, state_rv) {
     preview_rv <- reactiveVal(NULL)
     seed_rv <- reactiveVal(1L)
 
+    # Felder für DIESE Runde (Standard = Einstellung, aber pro Runde reduzierbar)
+    round_fields <- reactive({
+      dflt <- state_rv()$settings$num_fields
+      nf <- input$round_fields
+      if (is.null(nf) || is.na(nf) || nf < 1) dflt else min(as.integer(nf), dflt)
+    })
+
     cur_round_games <- reactive({
       s <- state_rv()
       s$games[s$games$round == s$current_round, , drop = FALSE]
@@ -41,11 +48,15 @@ module_matchday_server <- function(id, state_rv) {
           actionButton(ns("preview"), "Auslosung vorschlagen", class = "btn-primary"),
           actionButton(ns("reroll"), "Neu würfeln", class = "btn-info"))
       } else NULL
+      field_picker <- if (!has_games && s$settings$num_fields > 1)
+        numericInput(ns("round_fields"), "Felder diese Runde:", value = s$settings$num_fields,
+                     min = 1, max = s$settings$num_fields, width = "150px") else NULL
       div(
         h3(sprintf("Runde %d von %d", s$current_round, s$settings$num_rounds)),
         p(strong("System: "), sys$name),
         if (!has_games && s$current_round == 1)
           p(em("Runde 1 wird vor Ort gelost — bitte die Paarungen unten manuell eintragen.")),
+        field_picker,
         controls,
         if (has_games) actionButton(ns("lock_round"), "Runde abschließen", class = "btn-warning"),
         actionButton(ns("next_round"), "Nächste Runde", class = "btn-secondary")
@@ -60,7 +71,7 @@ module_matchday_server <- function(id, state_rv) {
       choices <- c("—" = "", setNames(as.character(pl$player_id), pl$name))
       div(style = "background:#efe;padding:10px;border-radius:5px;margin:10px 0;",
         h5("Runde 1 manuell eintragen"),
-        lapply(seq_len(s$settings$num_fields), function(f) {
+        lapply(seq_len(round_fields()), function(f) {
           slot <- function(k, lab) selectInput(ns(sprintf("m_f%d_s%d", f, k)), lab, choices)
           card(card_header(paste("Feld", f)),
             fluidRow(column(6, strong("Team 1"), slot(1, "Spieler 1"), slot(2, "Spieler 2")),
@@ -70,7 +81,7 @@ module_matchday_server <- function(id, state_rv) {
     })
 
     observeEvent(input$manual_accept, {
-      s <- state_rv(); nfields <- s$settings$num_fields
+      s <- state_rv(); nfields <- round_fields()
       pairings <- list(); used <- integer(0); ok <- TRUE
       for (f in seq_len(nfields)) {
         vals <- vapply(1:4, function(k) {
@@ -98,7 +109,7 @@ module_matchday_server <- function(id, state_rv) {
       pl <- ts_active_players(s)
       all_ids <- as.character(pl$player_id)
       name_by_id <- setNames(pl$name, as.character(pl$player_id))
-      ids <- unlist(lapply(seq_len(s$settings$num_fields), function(f) sprintf("m_f%d_s%d", f, 1:4)))
+      ids <- unlist(lapply(seq_len(round_fields()), function(f) sprintf("m_f%d_s%d", f, 1:4)))
       sel <- setNames(lapply(ids, function(i) input[[i]]), ids)
       for (i in ids) {
         avail <- slot_available_ids(all_ids, sel, i)
@@ -111,7 +122,8 @@ module_matchday_server <- function(id, state_rv) {
     # ---- Runde >= 2: automatische Auslosung mit Vorschau ----
     do_preview <- function() {
       s <- state_rv()
-      d <- generate_round_draw(s, s$current_round, seed = seed_rv(), n_candidates = 300L)
+      d <- generate_round_draw(s, s$current_round, seed = seed_rv(), n_candidates = 300L,
+                               n_fields = round_fields())
       if (is.null(d)) { showNotification("Keine Auslosung möglich (zu wenige Spieler).", type = "error"); return() }
       preview_rv(d)
     }
@@ -169,27 +181,34 @@ module_matchday_server <- function(id, state_rv) {
       if (nrow(g) == 0) return(div(style = "margin-top:10px;", em("Noch keine Auslosung übernommen.")))
       s <- state_rv()
       bo3 <- is_best_of_3()
+      pl <- ts_active_players(s)
+      pchoices <- setNames(as.character(pl$player_id), pl$name)
       tagList(lapply(seq_len(nrow(g)), function(i) {
         x <- g[i, ]; gid <- x$game_id; locked <- isTRUE(x$locked)
         num <- function(suffix, val) numericInput(ns(paste0(suffix, "_", gid)), NULL,
           value = if (is.na(val)) NA else val, min = 0, width = "70px")
-        team_inputs <- function(side) {
-          if (bo3) {
-            tagList(num(paste0(side, "s1"), x[[paste0(side, "_set1")]]),
-                    num(paste0(side, "s2"), x[[paste0(side, "_set2")]]),
-                    num(paste0(side, "s3"), x[[paste0(side, "_set3")]]))
+        sets_inputs <- function(side) {
+          if (bo3) tagList(num(paste0(side, "s1"), x[[paste0(side, "_set1")]]),
+                           num(paste0(side, "s2"), x[[paste0(side, "_set2")]]),
+                           num(paste0(side, "s3"), x[[paste0(side, "_set3")]]))
+          else num(paste0(side, "s1"), x[[paste0(side, "_set1")]])
+        }
+        psel <- function(suffix, cur) selectInput(ns(paste0("p_", suffix, "_", gid)), NULL,
+          choices = pchoices, selected = as.character(cur), width = "100%")
+        team_col <- function(side, p1, p2) {
+          if (locked) {
+            tagList(strong(paste(player_name(s, p1), "&", player_name(s, p2))),
+                    span(sprintf(" — %d Sätze", x[[paste0(side, "_points")]])))
           } else {
-            num(paste0(side, "s1"), x[[paste0(side, "_set1")]])
+            tagList(psel(paste0(side, "p1"), p1), psel(paste0(side, "p2"), p2), sets_inputs(side))
           }
         }
         card(
           card_header(sprintf("Feld %d%s", x$field, if (locked) " (gesperrt)" else "")),
           fluidRow(
-            column(5, strong(paste(player_name(s, x$t1_p1), "&", player_name(s, x$t1_p2))),
-                   if (!locked) team_inputs("t1") else span(sprintf(" — %d Sätze", x$t1_points))),
+            column(5, strong("Team 1"), team_col("t1", x$t1_p1, x$t1_p2)),
             column(2, div(style = "text-align:center;padding-top:20px;", "vs")),
-            column(5, strong(paste(player_name(s, x$t2_p1), "&", player_name(s, x$t2_p2))),
-                   if (!locked) team_inputs("t2") else span(sprintf(" — %d Sätze", x$t2_points)))
+            column(5, strong("Team 2"), team_col("t2", x$t2_p1, x$t2_p2))
           ),
           if (!locked) actionButton(ns(paste0("save_", gid)), "Speichern", class = "btn-primary btn-sm",
             onclick = sprintf("Shiny.setInputValue('%s', %d, {priority:'event'})", ns("save_game"), gid))
@@ -206,10 +225,27 @@ module_matchday_server <- function(id, state_rv) {
       }
     }
 
+    read_players <- function(gid) {
+      rd <- function(suf) { v <- input[[paste0("p_", suf, "_", gid)]]
+        if (is.null(v) || v == "") NA_integer_ else as.integer(v) }
+      list(t1 = c(rd("t1p1"), rd("t1p2")), t2 = c(rd("t2p1"), rd("t2p2")))
+    }
+
     observeEvent(input$save_game, {
       gid <- as.integer(input$save_game); s <- state_rv()
       sys <- s$settings$game_system
+      # 1) Paarung übernehmen (falls Spieler von Hand geändert wurden)
+      pp <- read_players(gid)
+      if (!any(is.na(c(pp$t1, pp$t2)))) {
+        ok <- tryCatch({ state_rv(ts_set_game_players(state_rv(), gid, pp$t1, pp$t2)); TRUE },
+                       error = function(e) { showNotification(conditionMessage(e), type = "warning"); FALSE })
+        if (!isTRUE(ok)) return()
+      }
+      # 2) Ergebnis (falls eingegeben) validieren + speichern
       t1 <- as.integer(read_sets(gid, "t1")); t2 <- as.integer(read_sets(gid, "t2"))
+      if (all(is.na(t1)) && all(is.na(t2))) {
+        showNotification("Paarung gespeichert.", type = "message"); return()
+      }
       val <- if (is_best_of_3()) validate_best_of_3(t1, t2, sys) else validate_single_set(t1[1], t2[1], sys)
       if (!val$valid) { showNotification(val$message, type = "warning"); return() }
       tryCatch({

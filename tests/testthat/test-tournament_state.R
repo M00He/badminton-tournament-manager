@@ -124,3 +124,16 @@ test_that("ts_edit_result korrigiert Ergebnis auch in gesperrter Runde", {
   expect_equal(g$t1_points, 0L)
   expect_equal(g$t2_points, 2L)
 })
+
+test_that("ts_set_game_players tauscht Spieler, blockiert Doppelbelegung", {
+  s <- make_started()
+  s <- ts_set_round_games(s, 1L, list(
+    list(field = 1L, team1 = c(1L,2L), team2 = c(3L,4L)),
+    list(field = 2L, team1 = c(5L,6L), team2 = c(7L,8L))))
+  g1 <- s$games$game_id[s$games$round == 1 & s$games$field == 1]
+  s2 <- ts_set_game_players(s, g1, c(1L,3L), c(2L,4L))   # gültiger Tausch in Feld 1
+  row <- s2$games[s2$games$game_id == g1, ]
+  expect_equal(c(row$t1_p1, row$t1_p2, row$t2_p1, row$t2_p2), c(1L,3L,2L,4L))
+  expect_error(ts_set_game_players(s, g1, c(1L,5L), c(2L,4L)), "anderen Feld")  # Spieler aus Feld 2
+  expect_error(ts_set_game_players(s, g1, c(1L,1L), c(2L,4L)), "nur einmal")    # doppelt
+})

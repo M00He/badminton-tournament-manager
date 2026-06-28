@@ -153,6 +153,24 @@ ts_edit_result <- function(state, game_id, t1_sets, t2_sets) {
   .apply_result(state, idx, t1_sets, t2_sets)
 }
 
+# Spieler eines Spiels setzen (manuelle Paarungs-Anpassung). Validiert: 4 verschiedene Spieler,
+# keiner davon in einem ANDEREN Feld derselben Runde. Lock wird bewusst nicht geprüft —
+# der Aufrufer entscheidet, ob editiert werden darf.
+ts_set_game_players <- function(state, game_id, t1, t2) {
+  idx <- which(state$games$game_id == game_id)
+  if (length(idx) == 0) stop("Spiel nicht gefunden.")
+  players <- c(t1, t2)
+  if (any(is.na(players))) stop("Bitte 4 Spieler wählen.")
+  if (length(unique(players)) != 4) stop("Jeder Spieler darf nur einmal pro Spiel.")
+  rnd <- state$games$round[idx]
+  others <- state$games[state$games$round == rnd & state$games$game_id != game_id, , drop = FALSE]
+  used <- c(others$t1_p1, others$t1_p2, others$t2_p1, others$t2_p2)
+  if (any(players %in% used)) stop("Ein Spieler ist bereits in einem anderen Feld dieser Runde.")
+  state$games$t1_p1[idx] <- as.integer(t1[1]); state$games$t1_p2[idx] <- as.integer(t1[2])
+  state$games$t2_p1[idx] <- as.integer(t2[1]); state$games$t2_p2[idx] <- as.integer(t2[2])
+  state
+}
+
 ts_lock_round <- function(state, round) {
   round <- as.integer(round)
   rows <- state$games$round == round

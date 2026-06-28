@@ -61,9 +61,9 @@ count_games_played <- function(games, player_ids, before_round) {
   counts
 }
 
-select_round_players <- function(state, round, ranking) {
+select_round_players <- function(state, round, ranking, n_fields = state$settings$num_fields) {
   active <- ts_active_players(state)$player_id
-  n_cap <- state$settings$num_fields * 4L
+  n_cap <- n_fields * 4L
   n_play <- min(length(active), n_cap)
   n_play <- (n_play %/% 4L) * 4L
   gp <- count_games_played(state$games, active, before_round = round)
@@ -134,7 +134,8 @@ score_draw <- function(pairings, histories, ranking) {
   list(penalty = pen, satisfied = unname(prio_names[!viol]))
 }
 
-generate_round_draw <- function(state, round, seed = 1L, n_candidates = 300L) {
+generate_round_draw <- function(state, round, seed = 1L, n_candidates = 300L,
+                                n_fields = state$settings$num_fields) {
   set.seed(seed)
   active_ids <- ts_active_players(state)$player_id
   ranking <- create_ranking(state$games, active_ids)
@@ -142,7 +143,7 @@ generate_round_draw <- function(state, round, seed = 1L, n_candidates = 300L) {
   missing <- setdiff(active_ids, ranking$player_id)
   if (length(missing)) ranking <- rbind(ranking[, c("rank","player_id")],
     data.frame(rank = max(c(ranking$rank, 0L)) + seq_along(missing), player_id = missing))
-  sel <- select_round_players(state, round, ranking)
+  sel <- select_round_players(state, round, ranking, n_fields)
   players <- sel$playing
   if (length(players) < 4) return(NULL)
   ranks <- ranking[match(players, ranking$player_id), ]

@@ -106,3 +106,30 @@ test_that("module_matchday: ungültiges Ergebnis wird blockiert", {
     expect_true(is.na(rv()$games$t1_points[rv()$games$game_id == gid]))  # nicht gespeichert
   })
 })
+
+test_that("module_matchday: weniger Felder diese Runde (round_fields) reduziert die Auslosung", {
+  s <- mk_started(8, 2); s$current_round <- 2L
+  rv <- reactiveVal(s)
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(round_fields = 1)
+    session$setInputs(preview = 1)
+    expect_equal(length(preview_rv()$pairings), 1L)
+    session$setInputs(accept = 1)
+    expect_equal(nrow(rv()$games[rv()$games$round == 2, ]), 1L)
+  })
+})
+
+test_that("module_matchday: Spieler eines Feldes von Hand tauschen", {
+  rv <- reactiveVal(mk_started(8, 2))
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(m_f1_s1 = "1", m_f1_s2 = "2", m_f1_s3 = "3", m_f1_s4 = "4",
+                      m_f2_s1 = "5", m_f2_s2 = "6", m_f2_s3 = "7", m_f2_s4 = "8")
+    session$setInputs(manual_accept = 1)
+    gid <- rv()$games$game_id[rv()$games$field == 1 & rv()$games$round == 1]
+    do.call(session$setInputs, setNames(list("1", "3", "2", "4"),
+      paste0(c("p_t1p1_", "p_t1p2_", "p_t2p1_", "p_t2p2_"), gid)))
+    session$setInputs(save_game = gid)
+    row <- rv()$games[rv()$games$game_id == gid, ]
+    expect_equal(c(row$t1_p1, row$t1_p2, row$t2_p1, row$t2_p2), c(1L, 3L, 2L, 4L))
+  })
+})

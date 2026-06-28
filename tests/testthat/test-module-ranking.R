@@ -49,3 +49,19 @@ test_that("module_ranking: Ergebnis nachträglich korrigieren (auch in gesperrte
     expect_equal(g$t2_points, 2L)
   })
 })
+
+test_that("module_ranking: Spieler eines Spiels nachträglich tauschen", {
+  s <- ts_lock_round(mk_state(), 1L)
+  rv <- reactiveVal(s)
+  testServer(module_ranking_server, args = list(state_rv = rv), {
+    gid <- rv()$games$game_id[1]
+    session$setInputs(edit_game = gid)
+    session$setInputs(edit_p_t1p1 = "1", edit_p_t1p2 = "3", edit_p_t2p1 = "2", edit_p_t2p2 = "4",
+                      edit_t1s1 = 11, edit_t1s2 = 11, edit_t1s3 = NA,
+                      edit_t2s1 = 5, edit_t2s2 = 7, edit_t2s3 = NA)
+    session$setInputs(confirm_edit_game = 1)
+    g <- rv()$games[rv()$games$game_id == gid, ]
+    expect_equal(c(g$t1_p1, g$t1_p2, g$t2_p1, g$t2_p2), c(1L, 3L, 2L, 4L))  # getauscht
+    expect_equal(g$t1_points, 2L)                                          # Ergebnis gesetzt
+  })
+})
