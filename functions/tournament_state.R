@@ -32,7 +32,8 @@ new_tournament_state <- function(name = NULL, created_at = NULL) {
     created_at      = if (is.null(created_at)) "" else created_at,
     settings        = list(num_rounds = 5L, num_fields = 4L,
                            game_system = "best_of_3_11",
-                           tiebreaker_order = "diff_first"),
+                           tiebreaker_order = "diff_first",
+                           schedule_mode = "round_by_round"),
     status          = "setup",         # "setup" | "running" | "finished"
     current_round   = 1L,
     players         = empty_players_df(),
@@ -94,13 +95,27 @@ ts_active_players <- function(state) {
 }
 
 ts_start_tournament <- function(state, num_rounds, num_fields, game_system,
-                                tiebreaker_order = "diff_first") {
+                                tiebreaker_order = "diff_first",
+                                schedule_mode = "round_by_round",
+                                plan_field_sequence = NULL) {
   if (nrow(ts_active_players(state)) < 4) stop("Mindestens 4 aktive Spieler benötigt.")
   stopifnot(tiebreaker_order %in% c("diff_first", "direct_first"))
+  stopifnot(schedule_mode %in% c("plan", "round_by_round"))
+  if (identical(schedule_mode, "plan")) {
+    if (is.null(plan_field_sequence) || length(plan_field_sequence) == 0)
+      stop("Voraus-Plan benötigt eine Felder-Folge.")
+    plan_field_sequence <- as.integer(plan_field_sequence)
+    num_rounds <- length(plan_field_sequence)
+    num_fields <- max(plan_field_sequence)
+  } else {
+    plan_field_sequence <- NULL
+  }
   state$settings <- list(num_rounds = as.integer(num_rounds),
                          num_fields = as.integer(num_fields),
                          game_system = game_system,
-                         tiebreaker_order = tiebreaker_order)
+                         tiebreaker_order = tiebreaker_order,
+                         schedule_mode = schedule_mode,
+                         plan_field_sequence = plan_field_sequence)
   state$current_round <- 1L
   state$status <- "running"
   state$games <- empty_games_df()
@@ -230,6 +245,9 @@ migrate_state <- function(raw) {
   raw$settings$num_rounds <- as.integer(raw$settings$num_rounds)
   raw$settings$num_fields <- as.integer(raw$settings$num_fields)
   if (is.null(raw$settings$tiebreaker_order)) raw$settings$tiebreaker_order <- "diff_first"
+  if (is.null(raw$settings$schedule_mode)) raw$settings$schedule_mode <- "round_by_round"
+  if (!is.null(raw$settings$plan_field_sequence))
+    raw$settings$plan_field_sequence <- as.integer(raw$settings$plan_field_sequence)
   raw$schema_version <- SCHEMA_VERSION
   raw
 }
