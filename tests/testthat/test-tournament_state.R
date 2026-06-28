@@ -85,3 +85,11 @@ test_that("ts_advance_round nur bei komplett gesperrter, vollständiger Runde", 
   s <- ts_advance_round(s)
   expect_equal(s$current_round, 2L)
 })
+
+test_that("ts_start_tournament schreibt tiebreaker_order in settings", {
+  s <- new_tournament_state()
+  for (i in 1:4) s <- ts_add_player(s, paste("P", i), if (i %% 2) "m" else "w")
+  expect_equal(new_tournament_state()$settings$tiebreaker_order, "diff_first")  # Default
+  s <- ts_start_tournament(s, 5L, 1L, "best_of_3_11", tiebreaker_order = "direct_first")
+  expect_equal(s$settings$tiebreaker_order, "direct_first")
+})

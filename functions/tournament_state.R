@@ -31,7 +31,8 @@ new_tournament_state <- function(name = NULL, created_at = NULL) {
     tournament_name = if (is.null(name)) "" else name,
     created_at      = if (is.null(created_at)) "" else created_at,
     settings        = list(num_rounds = 5L, num_fields = 4L,
-                           game_system = "best_of_3_11"),
+                           game_system = "best_of_3_11",
+                           tiebreaker_order = "diff_first"),
     status          = "setup",         # "setup" | "running" | "finished"
     current_round   = 1L,
     players         = empty_players_df(),
@@ -78,11 +79,14 @@ ts_active_players <- function(state) {
   state$players[state$players$active %in% TRUE, , drop = FALSE]
 }
 
-ts_start_tournament <- function(state, num_rounds, num_fields, game_system) {
+ts_start_tournament <- function(state, num_rounds, num_fields, game_system,
+                                tiebreaker_order = "diff_first") {
   if (nrow(ts_active_players(state)) < 4) stop("Mindestens 4 aktive Spieler benötigt.")
+  stopifnot(tiebreaker_order %in% c("diff_first", "direct_first"))
   state$settings <- list(num_rounds = as.integer(num_rounds),
                          num_fields = as.integer(num_fields),
-                         game_system = game_system)
+                         game_system = game_system,
+                         tiebreaker_order = tiebreaker_order)
   state$current_round <- 1L
   state$status <- "running"
   state$games <- empty_games_df()
@@ -181,6 +185,7 @@ migrate_state <- function(raw) {
   raw$current_round <- as.integer(raw$current_round)
   raw$settings$num_rounds <- as.integer(raw$settings$num_rounds)
   raw$settings$num_fields <- as.integer(raw$settings$num_fields)
+  if (is.null(raw$settings$tiebreaker_order)) raw$settings$tiebreaker_order <- "diff_first"
   raw$schema_version <- SCHEMA_VERSION
   raw
 }

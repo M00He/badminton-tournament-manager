@@ -25,3 +25,12 @@ test_that("migrate_state hebt alte schema_version an", {
   m <- migrate_state(raw)
   expect_equal(m$schema_version, 2L)
 })
+
+test_that("migrate_state ergänzt fehlendes tiebreaker_order mit Default", {
+  raw <- list(schema_version = 2L, tournament_name = "Alt",
+              settings = list(num_rounds = 5L, num_fields = 4L, game_system = "best_of_3_11"),
+              status = "running", current_round = 1L,
+              players = empty_players_df(), games = empty_games_df())
+  m <- migrate_state(raw)
+  expect_equal(m$settings$tiebreaker_order, "diff_first")
+})
