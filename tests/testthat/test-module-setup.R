@@ -27,3 +27,18 @@ test_that("module_setup: Turnier starten setzt Status + Einstellungen", {
     expect_equal(rv()$settings$tiebreaker_order, "direct_first")
   })
 })
+
+test_that("module_setup: 'Turnier starten' bei laufendem Turnier erst nach Bestätigung", {
+  s <- new_tournament_state()
+  for (nm in c("A","B","C","D")) s <- ts_add_player(s, nm, "m")
+  s <- ts_start_tournament(s, 5L, 1L, "best_of_3_11")   # läuft schon (5 Runden)
+  rv <- reactiveVal(s)
+  testServer(module_setup_server, args = list(state_rv = rv), {
+    session$setInputs(num_rounds = 3, num_fields = 1, game_system = "best_of_3_11",
+                      tiebreaker = "diff_first")
+    session$setInputs(start = 1)               # zeigt nur den Bestätigungs-Dialog
+    expect_equal(rv()$settings$num_rounds, 5L) # noch NICHT neu gestartet
+    session$setInputs(confirm_start_over = 1)  # bestätigt
+    expect_equal(rv()$settings$num_rounds, 3L) # jetzt neu gestartet
+  })
+})

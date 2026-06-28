@@ -25,6 +25,12 @@ module_matchday_server <- function(id, state_rv) {
       s$games[s$games$round == s$current_round, , drop = FALSE]
     })
 
+    # Alten Auslosungsvorschlag verwerfen, sobald sich Status oder Runde ändern
+    # (z. B. neues Turnier, Neustart, nächste Runde) — sonst bleibt er hängen.
+    observeEvent(paste(state_rv()$status, state_rv()$current_round), {
+      preview_rv(NULL)
+    }, ignoreInit = TRUE)
+
     output$header <- renderUI({
       s <- state_rv()
       if (s$status == "setup") return(em("Bitte zuerst im Setup ein Turnier starten."))

@@ -65,12 +65,40 @@ module_setup_server <- function(id, state_rv) {
       state_rv(ts_remove_player(state_rv(), as.integer(input$remove_player)))
     })
 
-    observeEvent(input$start, {
+    start_now <- function() {
       tryCatch({
         state_rv(ts_start_tournament(state_rv(), input$num_rounds, input$num_fields,
                                      input$game_system, input$tiebreaker))
         showNotification("Turnier gestartet! Weiter zum Spieltag.", type = "message")
       }, error = function(e) showNotification(conditionMessage(e), type = "error"))
+    }
+
+    observeEvent(input$start, {
+      s <- state_rv()
+      if (s$status != "setup") {
+        # Es läuft schon ein Turnier -> erst sichern + bestätigen
+        summ <- state_summary(s)
+        showModal(modalDialog(
+          title = "Es läuft bereits ein Turnier",
+          tagList(
+            p(sprintf("Aktuell: %s (Runde %s/%s). Beim Neustart geht es verloren.",
+                      summ$name, summ$round, summ$num_rounds)),
+            p(strong("Bitte zuerst sichern, dann bestätigen."))
+          ),
+          footer = tagList(
+            modalButton("Abbrechen"),
+            downloadButton("download_backup_modal", "Laufendes sichern", class = "btn-primary"),
+            actionButton(ns("confirm_start_over"), "Verwerfen & neu starten", class = "btn-danger")
+          )
+        ))
+        return()
+      }
+      start_now()
+    })
+
+    observeEvent(input$confirm_start_over, {
+      removeModal()
+      start_now()
     })
 
     output$status <- renderUI({

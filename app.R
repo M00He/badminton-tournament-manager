@@ -60,7 +60,7 @@ app_server <- function(input, output, session) {
   }, ignoreInit = TRUE)
 
   # Backup-Download — nativer downloadHandler (echter, vom Klick ausgelöster Download)
-  output$download_backup <- downloadHandler(
+  make_backup_dl <- function() downloadHandler(
     filename = function() backup_filename(state_rv()),
     content = function(file) {
       con <- file(file, open = "wb")
@@ -68,6 +68,8 @@ app_server <- function(input, output, session) {
       writeBin(charToRaw(enc2utf8(state_to_json(state_rv()))), con)
     }
   )
+  output$download_backup <- make_backup_dl()         # Daten-Tab
+  output$download_backup_modal <- make_backup_dl()   # in Bestätigungs-Dialogen
 
   # Restore aus Datei → Vorschau → Bestätigung
   observeEvent(input$restore_file, {
@@ -100,13 +102,28 @@ app_server <- function(input, output, session) {
     }
   })
 
-  # Neues Turnier
+  # Neues Turnier — laufendes vorher sichern + bestätigen
   observeEvent(input$new_tournament_btn, {
+    s <- state_rv()
+    if (s$status == "setup") {
+      state_rv(new_tournament_state())
+      session$sendCustomMessage("clear_persisted", "")
+      showNotification("Neues Turnier vorbereitet.", type = "message")
+      return()
+    }
+    summ <- state_summary(s)
     showModal(modalDialog(
-      title = "Neues Turnier?",
-      "Das aktuelle Turnier wird verworfen. Fortfahren?",
-      footer = tagList(modalButton("Abbrechen"),
-                       actionButton("confirm_new", "Ja, neues Turnier", class = "btn-danger"))
+      title = "Neues Turnier starten?",
+      tagList(
+        p(sprintf("Es läuft bereits ein Turnier: %s (Runde %s/%s, %s Spieler).",
+                  summ$name, summ$round, summ$num_rounds, summ$n_players)),
+        p(strong("Es geht beim Neustart verloren — bitte zuerst sichern."))
+      ),
+      footer = tagList(
+        modalButton("Abbrechen"),
+        downloadButton("download_backup_modal", "Laufendes sichern", class = "btn-primary"),
+        actionButton("confirm_new", "Verwerfen & neu starten", class = "btn-danger")
+      )
     ))
   })
 

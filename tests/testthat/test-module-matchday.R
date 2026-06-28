@@ -37,6 +37,18 @@ test_that("module_matchday: Runde 1 manuell blockiert doppelten Spieler", {
   })
 })
 
+test_that("module_matchday: Auslosungsvorschlag wird bei Rundenwechsel verworfen", {
+  s <- mk_started(8, 2); s$current_round <- 2L
+  rv <- reactiveVal(s)
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(preview = 1)
+    expect_false(is.null(preview_rv()))          # Vorschlag liegt vor
+    s2 <- rv(); s2$current_round <- 3L; rv(s2)    # Runde wechselt (z. B. Neustart)
+    session$flushReact()
+    expect_null(preview_rv())                     # Vorschlag verworfen
+  })
+})
+
 test_that("module_matchday: ab Runde 2 Vorschau erzeugen + übernehmen (kein Schreiben bei reroll)", {
   s <- mk_started(8, 2); s$current_round <- 2L
   rv <- reactiveVal(s)
