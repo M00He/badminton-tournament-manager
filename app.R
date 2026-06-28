@@ -6,6 +6,7 @@ for (f in list.files("functions", pattern = "[.]R$", full.names = TRUE)) {
   source(f, encoding = "UTF-8")
 }
 source("modules/module_setup.R", encoding = "UTF-8")
+source("modules/module_ranking.R", encoding = "UTF-8")
 
 placeholder <- function(txt) div(style = "color:#888; font-style:italic; padding:20px;", txt)
 
@@ -15,7 +16,7 @@ app_ui <- page_navbar(
   header = tags$head(tags$script(src = "persist.js")),
   nav_panel("Setup", module_setup_ui("setup")),
   nav_panel("Spieltag", placeholder("Spieltag folgt (Phase 2b-2).")),
-  nav_panel("Rangliste & Sieger", placeholder("Rangliste folgt (Phase 2b-2).")),
+  nav_panel("Rangliste & Sieger", module_ranking_ui("ranking")),
   nav_panel(
     "Daten",
     layout_columns(
@@ -39,6 +40,7 @@ app_ui <- page_navbar(
 app_server <- function(input, output, session) {
   state_rv <- reactiveVal(new_tournament_state())
   module_setup_server("setup", state_rv)
+  module_ranking_server("ranking", state_rv)
 
   # Auto-Resume beim Verbindungsaufbau
   observeEvent(input$restored_state, {
