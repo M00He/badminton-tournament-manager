@@ -21,8 +21,20 @@ module_setup_ui <- function(id) {
     ),
     card(
       card_header("Einstellungen"),
-      numericInput(ns("num_rounds"), "Anzahl Runden:", 5, min = 1, max = 20),
-      numericInput(ns("num_fields"), "Anzahl Felder:", 4, min = 1, max = 10),
+      radioButtons(ns("schedule_mode"), "Spielplan-Modus:",
+        c("Voraus-Plan — gleiche Spiele & keine Partner-Wiederholung (garantiert)" = "plan",
+          "Rundenweise — frei pro Runde (wie gehabt)" = "round_by_round"),
+        selected = "plan"),
+      numericInput(ns("num_fields"), "Anzahl Felder (Plätze):", 4, min = 1, max = 10),
+      conditionalPanel(
+        condition = sprintf("input['%s'] == 'plan'", ns("schedule_mode")),
+        selectInput(ns("plan_rounds"), "Anzahl Runden:", choices = NULL),
+        uiOutput(ns("plan_info"))
+      ),
+      conditionalPanel(
+        condition = sprintf("input['%s'] == 'round_by_round'", ns("schedule_mode")),
+        numericInput(ns("num_rounds"), "Anzahl Runden:", 5, min = 1, max = 20)
+      ),
       selectInput(ns("game_system"), "Spielsystem:", c(
         "Zwei Gewinnsätze bis 11" = "best_of_3_11", "Ein Satz bis 15" = "single_15",
         "Ein Satz bis 21" = "single_21", "Ein Satz bis 30" = "single_30")),
@@ -38,6 +50,36 @@ module_setup_ui <- function(id) {
 module_setup_server <- function(id, state_rv) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
+
+    # Rundenzahl-Optionen aus aktiver Spielerzahl + Felderzahl ableiten (Plan-Modus)
+    observe({
+      P <- nrow(ts_active_players(state_rv())); Fm <- input$num_fields
+      if (is.null(Fm) || is.na(Fm) || P < 4 || Fm < 1) {
+        updateSelectInput(session, "plan_rounds", choices = character(0)); return()
+      }
+      opts <- plan_options(as.integer(P), as.integer(Fm))
+      if (length(opts) == 0) {
+        updateSelectInput(session, "plan_rounds", choices = character(0)); return()
+      }
+      labels <- vapply(opts, function(o) sprintf("%d Runden  (je %d Spiele, %d× Pause)",
+                                                 o$rounds, o$games, o$byes), "")
+      vals <- vapply(opts, function(o) as.character(o$rounds), "")
+      def <- default_plan_rounds(as.integer(P), as.integer(Fm))
+      updateSelectInput(session, "plan_rounds", choices = setNames(vals, labels),
+                        selected = as.character(def))
+    })
+
+    output$plan_info <- renderUI({
+      P <- nrow(ts_active_players(state_rv())); Fm <- input$num_fields
+      R <- suppressWarnings(as.integer(input$plan_rounds))
+      if (is.null(Fm) || is.na(Fm) || P < 4 || is.na(R)) return(em("Spieler & Felder wählen."))
+      fs <- field_sequence_for(as.integer(P), as.integer(Fm), R)
+      if (is.null(fs)) return(em("Für diese Kombination gibt es keinen gültigen Plan."))
+      G <- sum(4L * fs) %/% P
+      div(style = "color:#555;margin-top:4px;",
+        sprintf("%d Spieler · jeder %d Spiele · %d× Pause · keine Partner-Wiederholung.",
+                P, G, R - G))
+    })
 
     output$player_list <- renderUI({
       pl <- ts_active_players(state_rv())
@@ -90,9 +132,21 @@ module_setup_server <- function(id, state_rv) {
     })
 
     start_now <- function() {
+      s <- state_rv(); mode <- input$schedule_mode %||% "plan"
       tryCatch({
-        state_rv(ts_start_tournament(state_rv(), input$num_rounds, input$num_fields,
-                                     input$game_system, input$tiebreaker))
+        if (identical(mode, "plan")) {
+          P <- nrow(ts_active_players(s)); Fm <- as.integer(input$num_fields)
+          R <- suppressWarnings(as.integer(input$plan_rounds))
+          if (is.na(R) || length(R) == 0) stop("Bitte eine Rundenzahl wählen.")
+          fs <- field_sequence_for(P, Fm, R)
+          if (is.null(fs)) stop("Für diese Kombination gibt es keinen gültigen Plan.")
+          state_rv(ts_start_tournament(state_rv(), R, Fm, input$game_system, input$tiebreaker,
+                                       schedule_mode = "plan", plan_field_sequence = fs))
+        } else {
+          state_rv(ts_start_tournament(state_rv(), input$num_rounds, input$num_fields,
+                                       input$game_system, input$tiebreaker,
+                                       schedule_mode = "round_by_round"))
+        }
         showNotification("Turnier gestartet! Weiter zum Spieltag.", type = "message")
       }, error = function(e) showNotification(conditionMessage(e), type = "error"))
     }

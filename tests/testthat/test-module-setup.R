@@ -1,6 +1,7 @@
 source("../../functions/tournament_state.R", encoding = "UTF-8")
 source("../../functions/game_system.R", encoding = "UTF-8")
 source("../../functions/ranking_calculation.R", encoding = "UTF-8")
+source("../../functions/schedule_planner.R", encoding = "UTF-8")
 source("../../functions/app_helpers.R", encoding = "UTF-8")
 source("../../modules/module_setup.R", encoding = "UTF-8")
 library(shiny)
@@ -19,8 +20,8 @@ test_that("module_setup: Turnier starten setzt Status + Einstellungen", {
   rv <- reactiveVal(new_tournament_state())
   for (nm in c("A","B","C","D")) isolate(rv(ts_add_player(rv(), nm, "m")))
   testServer(module_setup_server, args = list(state_rv = rv), {
-    session$setInputs(num_rounds = 6, num_fields = 2, game_system = "best_of_3_11",
-                      tiebreaker = "direct_first")
+    session$setInputs(schedule_mode = "round_by_round", num_rounds = 6, num_fields = 2,
+                      game_system = "best_of_3_11", tiebreaker = "direct_first")
     session$setInputs(start = 1)
     expect_equal(rv()$status, "running")
     expect_equal(rv()$settings$num_rounds, 6L)
@@ -46,8 +47,8 @@ test_that("module_setup: 'Turnier starten' bei laufendem Turnier erst nach Best�
   s <- ts_start_tournament(s, 5L, 1L, "best_of_3_11")   # läuft schon (5 Runden)
   rv <- reactiveVal(s)
   testServer(module_setup_server, args = list(state_rv = rv), {
-    session$setInputs(num_rounds = 3, num_fields = 1, game_system = "best_of_3_11",
-                      tiebreaker = "diff_first")
+    session$setInputs(schedule_mode = "round_by_round", num_rounds = 3, num_fields = 1,
+                      game_system = "best_of_3_11", tiebreaker = "diff_first")
     session$setInputs(start = 1)               # zeigt nur den Bestätigungs-Dialog
     expect_equal(rv()$settings$num_rounds, 5L) # noch NICHT neu gestartet
     session$setInputs(confirm_start_over = 1)  # bestätigt
