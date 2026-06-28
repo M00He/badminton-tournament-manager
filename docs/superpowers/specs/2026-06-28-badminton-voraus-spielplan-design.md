@@ -83,10 +83,10 @@ Runde 1 = fixierter Anfang (`locked_rounds`). Validieren (genau `2·f₁` Teams,
 
 ## 6. State-Modell & Modus
 
-- `settings$schedule_mode ∈ {"plan", "round_by_round"}` (Default `"plan"`). `migrate_state` ergänzt fehlend mit `"plan"` (alte Backups bleiben ladbar).
-- `settings$plan_games_per_player` (G) **oder** `settings$plan_field_sequence` (die gewählte Felder-Folge) — die Turnierlänge.
-- `state$plan` — der aktuelle Voraus-Plan für die **kommenden** Runden (Liste von Paarungen je Runde + Felderzahl). Serialisierbar (JSON). `migrate_state` defaultet auf leer.
-- Im Modus `"round_by_round"` bleibt alles wie heute (`generate_round_draw`); `state$plan` ungenutzt.
+- `settings$schedule_mode ∈ {"plan", "round_by_round"}`. **UI-/Neu-Turnier-Default = `"plan"`.** `migrate_state` defaultet ein *fehlendes* `schedule_mode` (alte Backups) jedoch auf `"round_by_round"` — ein vor diesem Feature gestartetes Greedy-Turnier kann nicht rückwirkend in ein Voraus-Plan-Turnier umgedeutet werden. (Umgesetzt so in Plan B Task 1.)
+- `settings$plan_field_sequence` (int-Vektor, die gewählte Felder-Folge) — repräsentiert die Turnierlänge vollständig (`num_rounds = length`, `num_fields = max`). `migrate_state` coerced sie nach integer.
+- **Kein `state$plan`-Feld.** Der konkrete Restplan wird NICHT persistiert, sondern bei Bedarf aus dem gespielten Präfix neu erzeugt + an die aktuelle Tabelle re-optimiert (`plan_next_round_pairings`, Plan B Task 2). Das ist der Existenzbeweis (§4) und spart die fehleranfällige Serialisierung verschachtelter Runden-Listen. Persistiert werden nur `schedule_mode` + `plan_field_sequence`.
+- Im Modus `"round_by_round"` bleibt alles wie heute (`generate_round_draw`).
 
 ---
 
@@ -94,8 +94,8 @@ Runde 1 = fixierter Anfang (`locked_rounds`). Validieren (genau `2·f₁` Teams,
 
 - **Setup:** Modus-Auswahl („Voraus-Plan" / „Rundenweise"). Bei „Voraus-Plan": Auswahl der Turnierlänge aus den `plan_options` (Default vorgeschlagen, mit Anzeige „G Spiele · R Runden · Pausen"). F_max bleibt die Felderzahl-Einstellung.
 - **Spieltag (Voraus-Plan-Modus):**
-  - Runde 1: manuelle Eingabe (wie jetzt) → bei „Übernehmen" wird der komplette Plan für den Rest erzeugt.
-  - Ab Runde 2: der Spieltag zeigt die **geplante Runde** (aus `state$plan`) statt „Auslosung vorschlagen". Buttons: **„Plan-Runde übernehmen"** (schreibt sie via `ts_set_round_games`) und **„Anders planen"** (re-würfelt eine alternative gültige Rest-Completion).
+  - Runde 1: manuelle Eingabe (wie jetzt), mit fixer Felderzahl `plan_field_sequence[1]`.
+  - Ab Runde 2: der Spieltag erzeugt auf Knopfdruck die **geplante Runde** (`plan_next_round_pairings` → garantiert-gültige, an die Tabelle re-optimierte Fortsetzung) und zeigt sie als Vorschlag. Buttons: **„Geplante Runde anzeigen"** und **„Anders planen"** (alternative gültige Rest-Completion via anderen Seed); Übernehmen schreibt via `ts_set_round_games`.
   - Die **manuellen Eingriffe bleiben** (Spieler je Feld editierbar, variable Felder pro Runde) — der Plan ist Vorschlag, nicht Zwang. Eine Handänderung fixiert die Runde und löst Re-Planung des Rests aus.
   - Nach „Runde abschließen" + Ergebniseingabe: `reoptimize_tail` aktualisiert den Restplan gegen die Tabelle.
 - **Rangliste:** unverändert. Optional: kleine Anzeige „Plan: jeder X Spiele, Y verschiedene Partner garantiert".
