@@ -177,3 +177,39 @@ test_that("generate_schedule: Saettigung 8 Spieler/2 Felder/7 Runden (G=P-1)", {
   expect_true(v$ok)
   expect_equal(unname(v$games_per_player[1]), 7L)
 })
+
+test_that("generate_schedule respektiert fixierte Runde 1", {
+  players <- 1:14
+  fs <- field_sequence_for(14L, 3L, 7L)            # 7x 3 Felder
+  # manuelle Runde 1: 3 Felder, Paarungen frei gewählt, 2 Pausen (13,14)
+  r1 <- list(field_count = 3L, byes = c(13L, 14L), games = list(
+    list(field = 1L, team1 = c(1L, 2L),  team2 = c(3L, 4L)),
+    list(field = 2L, team1 = c(5L, 6L),  team2 = c(7L, 8L)),
+    list(field = 3L, team1 = c(9L, 10L), team2 = c(11L, 12L))))
+  sched <- generate_schedule(players, fs, locked_rounds = list(r1), seed = 2L)
+  expect_false(is.null(sched))
+  # Runde 1 unveraendert
+  expect_equal(sched[[1]]$games[[1]]$team1, c(1L, 2L))
+  expect_equal(sort(sched[[1]]$byes), c(13L, 14L))
+  v <- verify_schedule(sched, players)
+  expect_true(v$ok)
+  # die in R1 gesetzten Partner duerfen nicht erneut auftauchen (H2 ueber gesamten Plan)
+  expect_false("1|2" %in% v$partner_repeats)
+})
+
+# generate_schedule VALIDIERT gelockte Runden NICHT (das macht die UI in Plan B).
+# Es liefert NULL nur, wenn der gelockte Praefix keine gleiche-Spiele-Completion mehr zulaesst.
+test_that("generate_schedule: gestrandete Spieler -> keine Completion -> NULL", {
+  players <- 1:6
+  fs <- field_sequence_for(6L, 1L, 3L)             # 3 Runden, 1 Feld, G=2, je 1 Pause
+  expect_equal(fs, rep(1L, 3L))
+  # Runden 1+2 lassen 1 und 2 pausieren -> sie haben 0 Spiele, koennen in 1 Restrunde
+  # nicht auf G=2 kommen -> keine gueltige Completion.
+  r1 <- list(field_count = 1L, byes = c(1L, 2L), games = list(
+    list(field = 1L, team1 = c(3L, 4L), team2 = c(5L, 6L))))
+  r2 <- list(field_count = 1L, byes = c(1L, 2L), games = list(
+    list(field = 1L, team1 = c(3L, 5L), team2 = c(4L, 6L))))  # intern gueltig (keine Repeats)
+  sched <- generate_schedule(players, fs, locked_rounds = list(r1, r2),
+                             seed = 1L, max_restarts = 200L)
+  expect_null(sched)
+})
