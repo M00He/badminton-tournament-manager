@@ -29,6 +29,7 @@ test_that("module_matchday Plan-Modus: Vorschlag fuer Runde 2 kommt aus dem Gene
     session$setInputs(preview = 1)
     d <- preview_rv()
     expect_false(is.null(d))
+    expect_equal(d$quality, "gleiche Spielzahl + keine Partner-Wiederholung (garantiert)")
     expect_equal(length(d$pairings), 2L)             # fixe Felderzahl fs[2] = 2
     session$setInputs(accept = 1)
     g <- rv()$games[rv()$games$round == 2, ]
