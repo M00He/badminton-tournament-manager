@@ -8,6 +8,7 @@ module_matchday_ui <- function(id) {
       uiOutput(ns("header")),
       uiOutput(ns("manual_box")),
       uiOutput(ns("preview_box")),
+      uiOutput(ns("full_plan")),
       uiOutput(ns("fields"))
     ),
     card(card_header("Live-Rangliste"), uiOutput(ns("mini_ranking")))
@@ -18,6 +19,7 @@ module_matchday_server <- function(id, state_rv) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     preview_rv <- reactiveVal(NULL)
+    full_plan_rv <- reactiveVal(NULL)
     seed_rv <- reactiveVal(1L)
 
     # Felder für DIESE Runde. Im Plan-Modus durch die Felder-Folge fixiert,
@@ -42,7 +44,7 @@ module_matchday_server <- function(id, state_rv) {
     # Alten Auslosungsvorschlag verwerfen, sobald sich Status oder Runde ändern
     # (z. B. neues Turnier, Neustart, nächste Runde) — sonst bleibt er hängen.
     observeEvent(paste(state_rv()$status, state_rv()$current_round), {
-      preview_rv(NULL)
+      preview_rv(NULL); full_plan_rv(NULL)
     }, ignoreInit = TRUE)
 
     output$header <- renderUI({
@@ -136,12 +138,14 @@ module_matchday_server <- function(id, state_rv) {
     do_preview <- function() {
       s <- state_rv()
       if (identical(s$settings$schedule_mode, "plan")) {
-        d <- plan_next_round_pairings(s, seed = seed_rv(), n_candidates = 300L)
-        if (is.null(d)) {
+        rem <- plan_remaining_rounds(s, seed = seed_rv(), n_candidates = 300L)
+        if (is.null(rem)) {
           showNotification("Plan: keine gültige Fortsetzung gefunden.", type = "error"); return()
         }
-        d$quality <- "gleiche Spielzahl + keine Partner-Wiederholung (garantiert)"
-        preview_rv(d)
+        first <- rem[[1]]
+        preview_rv(list(pairings = first$pairings, byes = first$byes,
+                        quality = "gleiche Spielzahl + keine Partner-Wiederholung (garantiert)"))
+        full_plan_rv(rem)
       } else {
         d <- generate_round_draw(s, s$current_round, seed = seed_rv(), n_candidates = 300L,
                                  n_fields = round_fields())
@@ -149,6 +153,7 @@ module_matchday_server <- function(id, state_rv) {
           showNotification("Keine Auslosung möglich (zu wenige Spieler).", type = "error"); return()
         }
         preview_rv(d)
+        full_plan_rv(NULL)
       }
     }
     observeEvent(input$preview, do_preview())
@@ -170,6 +175,27 @@ module_matchday_server <- function(id, state_rv) {
         p(strong("Aussetzer: "), byes),
         p(strong("Erfüllte Kriterien: "), qual),
         actionButton(ns("accept"), "Übernehmen", class = "btn-success"))
+    })
+
+    output$full_plan <- renderUI({
+      rem <- full_plan_rv()
+      if (is.null(rem) || length(rem) == 0) return(NULL)
+      s <- state_rv()
+      div(style = "background:#f7f7f7;padding:10px;border-radius:5px;margin:10px 0;",
+        h5("Gesamtplan (Vorschau)"),
+        p(em("Spätere Runden passen sich nach jeder Runde an die aktuelle Tabelle an — die Garantien (gleiche Spiele, verschiedene Partner) gelten immer.")),
+        tagList(lapply(rem, function(rd) {
+          bye <- if (length(rd$byes))
+            paste(vapply(rd$byes, function(x) player_name(s, x), ""), collapse = ", ") else "—"
+          tagList(
+            strong(sprintf("Runde %d%s", rd$round,
+                           if (rd$round == s$current_round) " — jetzt dran" else "")),
+            tags$ul(lapply(rd$pairings, function(p) tags$li(
+              sprintf("Feld %d: %s & %s  vs  %s & %s", p$field,
+                player_name(s, p$team1[1]), player_name(s, p$team1[2]),
+                player_name(s, p$team2[1]), player_name(s, p$team2[2]))))),
+            p(style = "margin:0 0 8px;", strong("Pause: "), bye))
+        })))
     })
 
     observeEvent(input$accept, {

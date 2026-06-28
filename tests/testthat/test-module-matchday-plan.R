@@ -62,3 +62,27 @@ test_that("module_matchday Rundenweise-Modus bleibt unveraendert (Greedy-Auslosu
     expect_true(length(preview_rv()$pairings) > 0)
   })
 })
+
+test_that("module_matchday Plan-Modus: Gesamtplan-Vorschau zeigt alle Restrunden", {
+  rv <- reactiveVal(mk_plan_round2())                 # 8/2/5, current_round = 2
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(preview = 1)
+    rem <- full_plan_rv()
+    expect_false(is.null(rem))
+    expect_equal(length(rem), 4L)                     # Runden 2..5
+    expect_equal(rem[[1]]$round, 2L)
+    expect_error(output$full_plan, NA)                # rendert ohne Fehler
+  })
+})
+
+test_that("module_matchday Rundenweise: kein Gesamtplan (full_plan_rv leer)", {
+  s <- new_tournament_state(name = "T")
+  for (i in seq_len(8)) s <- ts_add_player(s, paste("Spieler", i), if (i %% 2) "m" else "w")
+  s <- ts_start_tournament(s, 5L, 2L, "best_of_3_11", schedule_mode = "round_by_round")
+  s$current_round <- 2L
+  rv <- reactiveVal(s)
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(preview = 1)
+    expect_null(full_plan_rv())
+  })
+})

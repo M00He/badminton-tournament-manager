@@ -71,3 +71,22 @@ test_that("plan_next_round_pairings: voller Plan (Praefix + Vorschlag) ist H1/H2
   v <- verify_schedule(two, 1:8)
   expect_equal(length(v$partner_repeats), 0L)      # keine Partner-Wiederholung
 })
+
+test_that("plan_remaining_rounds liefert alle Restrunden und einen gueltigen Gesamtrest", {
+  s <- mk_started_plan()                              # 8/2/5, current_round = 2
+  rem <- plan_remaining_rounds(s, seed = 1L, n_candidates = 50L)
+  expect_false(is.null(rem))
+  expect_equal(length(rem), 4L)                       # Runden 2..5
+  expect_equal(rem[[1]]$round, 2L)
+  expect_equal(rem[[4]]$round, 5L)
+  # erste Restrunde == naechste Runde (Konsistenz bei gleichem Seed)
+  nxt <- plan_next_round_pairings(s, seed = 1L, n_candidates = 50L)
+  expect_equal(rem[[1]]$pairings, nxt$pairings)
+  # gespielter Praefix + alle Restrunden = gueltiger Gesamtplan (H1/H2)
+  rem_planfmt <- lapply(rem, function(rd)
+    list(field_count = length(rd$pairings), games = rd$pairings, byes = as.integer(rd$byes)))
+  full <- c(played_rounds_as_plan(s), rem_planfmt)
+  v <- verify_schedule(full, 1:8)
+  expect_true(v$ok, info = paste(v$errors, collapse = "; "))
+  expect_equal(length(v$partner_repeats), 0L)
+})

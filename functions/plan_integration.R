@@ -36,9 +36,9 @@ strength_from_ranking <- function(state) {
   setNames(as.numeric(n - r$rank + 1L), as.character(r$player_id))  # Rang 1 -> hoechste Staerke
 }
 
-# Naechste Runde (= current_round) als garantiert-gueltige, an die Tabelle re-optimierte
-# Fortsetzung des gespielten Praefix. Rueckgabe im Matchday-pairings-Format oder NULL.
-plan_next_round_pairings <- function(state, seed = 1L, n_candidates = 300L) {
+# Alle verbleibenden Runden (current_round..R) als garantiert-gueltige, an die Tabelle
+# re-optimierte Fortsetzung. Rueckgabe: Liste von list(round, pairings, byes) oder NULL.
+plan_remaining_rounds <- function(state, seed = 1L, n_candidates = 300L) {
   fs <- state$settings$plan_field_sequence
   if (is.null(fs) || length(fs) == 0) return(NULL)
   players <- ts_active_players(state)$player_id
@@ -50,7 +50,19 @@ plan_next_round_pairings <- function(state, seed = 1L, n_candidates = 300L) {
   strength <- strength_from_ranking(state)
   full <- reoptimize_tail(players, fs, played_rounds = played, strength = strength,
                           current_schedule = base, n_candidates = n_candidates, seed = seed)
-  rd <- full[[k]]
-  if (is.null(rd)) return(NULL)
-  list(pairings = rd$games, byes = rd$byes)
+  out <- lapply(k:length(fs), function(r) {
+    rd <- full[[r]]
+    if (is.null(rd)) return(NULL)
+    list(round = r, pairings = rd$games, byes = rd$byes)
+  })
+  out <- out[!vapply(out, is.null, logical(1))]
+  if (length(out) == 0) return(NULL)
+  out
+}
+
+# Naechste Runde (= current_round) im Matchday-pairings-Format oder NULL.
+plan_next_round_pairings <- function(state, seed = 1L, n_candidates = 300L) {
+  rem <- plan_remaining_rounds(state, seed = seed, n_candidates = n_candidates)
+  if (is.null(rem)) return(NULL)
+  list(pairings = rem[[1]]$pairings, byes = rem[[1]]$byes)
 }
