@@ -95,3 +95,18 @@ test_that("default_plan_rounds schlaegt eine spielbare Rundenzahl vor", {
   g <- max_games_for(14L, 3L, R)
   expect_true(g >= 6L && g <= 8L)
 })
+
+test_that("max_games_for: ungerades G ist gueltig wenn P*G durch 4 teilbar", {
+  # 8 Spieler, 2 Felder, 3 Runden -> G=3 (jeder 3 verschiedene Partner, keine Pause)
+  expect_equal(max_games_for(8L, 2L, 3L), 3L)
+})
+
+test_that("max_games_for / field_sequence_for: Infeasible -> 0 bzw. NULL", {
+  expect_equal(max_games_for(5L, 1L, 3L), 0L)     # P=5: kein G mit 5G durch 4 teilbar im Bereich
+  expect_null(field_sequence_for(5L, 1L, 3L))
+})
+
+test_that("Schutz vor absteigendem seq.int / max_rounds < 2", {
+  expect_equal(max_games_for(2L, 1L, 5L), 0L)     # P=2 -> Obergrenze < 2 -> 0
+  expect_equal(length(plan_options(14L, 3L, max_rounds = 1L)), 0L)
+})

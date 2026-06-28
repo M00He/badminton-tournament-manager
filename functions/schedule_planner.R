@@ -44,8 +44,10 @@ verify_schedule <- function(schedule, players) {
        equal_byes = equal_byes, errors = errors)
 }
 
-# Größtes gerades G, das in R Runden bei P Spielern und max F_max Feldern aufgeht.
+# Größtes G (Bedingung: P*G durch 4 teilbar -> Felder gehen auf), das in R Runden aufgeht.
+# Hinweis: G muss NICHT gerade sein; bei P teilbar durch 4 ist ungerades G gueltig.
 max_games_for <- function(P, F_max, R) {
+  if (min(P - 1L, R) < 2L) return(0L)   # sonst liefe seq.int(2, <2) absteigend
   best <- 0L
   for (G in seq.int(2L, min(P - 1L, R), by = 1L)) {
     if ((P * G) %% 4L != 0L) next            # P*G/4 muss ganzzahlig sein
@@ -70,6 +72,7 @@ field_sequence_for <- function(P, F_max, R) {
 # Feasibility-Leiter: für jede sinnvolle Rundenzahl eine Option.
 plan_options <- function(P, F_max, min_games = 4L, max_rounds = NULL) {
   if (is.null(max_rounds)) max_rounds <- P - 1L  # G <= P-1 ist die Obergrenze
+  if (max_rounds < 2L) return(list())
   out <- list()
   for (R in seq.int(2L, max_rounds)) {
     G <- max_games_for(P, F_max, R)
