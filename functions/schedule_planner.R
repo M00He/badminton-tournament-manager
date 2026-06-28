@@ -117,3 +117,104 @@ circle_factorization <- function(P) {
   }
   rounds
 }
+
+# Baut einen Plan aus einer Kreis-Faktorisierung (Sättigung: G = P-1, keine Pausen).
+.schedule_from_circle <- function(players, field_sequence) {
+  P <- length(players)
+  R <- length(field_sequence)
+  fac <- circle_factorization(P)                  # P-1 Runden Paarungen über 1..P
+  rounds <- vector("list", R)
+  for (r in seq_len(R)) {
+    pairs <- fac[[r]]                              # P/2 Teams
+    f <- field_sequence[r]
+    if (length(pairs) != 2L * f) return(NULL)      # nur sauberer No-Bye-Fall
+    games <- list()
+    for (k in seq_len(f)) {
+      t1 <- pairs[[2L * k - 1L]]; t2 <- pairs[[2L * k]]
+      games[[k]] <- list(field = k,
+                         team1 = players[t1], team2 = players[t2])
+    }
+    rounds[[r]] <- list(field_count = f, games = games, byes = integer(0))
+  }
+  rounds
+}
+
+# Randomisiert-konstruktiver Generator mit "muss-noch-spielen"-Regel + Neustarts.
+generate_schedule <- function(players, field_sequence, locked_rounds = NULL,
+                              seed = 1L, max_restarts = 2000L) {
+  P <- length(players)
+  R <- length(field_sequence)
+  G <- (sum(4L * field_sequence)) %/% P
+  idx <- seq_len(P)
+  id_of <- players                                 # idx -> player_id
+  to_idx <- function(id) match(id, id_of)
+  n_locked <- if (is.null(locked_rounds)) 0L else length(locked_rounds)
+
+  # Sättigungs-Sicherung: ohne Pausen und G = P-1 -> deterministisch via Kreis.
+  no_byes <- all(field_sequence == P %/% 4L) && (P %% 4L == 0L)
+  if (n_locked == 0L && G == P - 1L && no_byes) {
+    sc <- .schedule_from_circle(players, field_sequence)
+    if (!is.null(sc)) return(sc)
+  }
+
+  set.seed(seed)
+  for (attempt in seq_len(max_restarts)) {
+    partner_used <- matrix(FALSE, P, P)
+    games_cnt <- integer(P); byes_cnt <- integer(P)
+    rounds <- vector("list", R); ok <- TRUE
+
+    if (n_locked > 0L) {
+      for (r in seq_len(n_locked)) {
+        lr <- locked_rounds[[r]]
+        for (gm in lr$games) {
+          a <- to_idx(gm$team1[1]); b <- to_idx(gm$team1[2])
+          c <- to_idx(gm$team2[1]); d <- to_idx(gm$team2[2])
+          partner_used[a, b] <- partner_used[b, a] <- TRUE
+          partner_used[c, d] <- partner_used[d, c] <- TRUE
+          games_cnt[c(a, b, c, d)] <- games_cnt[c(a, b, c, d)] + 1L
+        }
+        if (length(lr$byes)) {
+          bi <- to_idx(lr$byes); byes_cnt[bi] <- byes_cnt[bi] + 1L
+        }
+        rounds[[r]] <- lr
+      }
+    }
+
+    if (n_locked < R) for (r in (n_locked + 1L):R) {
+      f <- field_sequence[r]; n_play <- 4L * f; n_bye <- P - n_play
+      rem_rounds <- R - r + 1L
+      need <- G - games_cnt
+      must_play <- which(need >= rem_rounds)
+      if (length(must_play) > n_play) { ok <- FALSE; break }
+      cand_bye <- setdiff(idx, must_play)
+      if (length(cand_bye) < n_bye) { ok <- FALSE; break }
+      sitout <- cand_bye[order(byes_cnt[cand_bye], runif(length(cand_bye)))][seq_len(n_bye)]
+      active <- sample(setdiff(idx, sitout))
+
+      free <- active; teams <- list(); pair_ok <- TRUE
+      while (length(free) >= 2L) {
+        a <- free[1]; rest <- free[-1]
+        compat <- rest[!partner_used[a, rest]]
+        if (length(compat) == 0L) { pair_ok <- FALSE; break }
+        b <- compat[sample.int(length(compat), 1L)]
+        teams[[length(teams) + 1L]] <- c(a, b)
+        free <- setdiff(free, c(a, b))
+      }
+      if (!pair_ok || length(teams) != 2L * f) { ok <- FALSE; break }
+
+      games <- list()
+      for (k in seq_len(f)) {
+        t1 <- teams[[2L * k - 1L]]; t2 <- teams[[2L * k]]
+        games[[k]] <- list(field = k, team1 = id_of[t1], team2 = id_of[t2])
+        partner_used[t1[1], t1[2]] <- partner_used[t1[2], t1[1]] <- TRUE
+        partner_used[t2[1], t2[2]] <- partner_used[t2[2], t2[1]] <- TRUE
+      }
+      games_cnt[active] <- games_cnt[active] + 1L
+      byes_cnt[sitout] <- byes_cnt[sitout] + 1L
+      rounds[[r]] <- list(field_count = f, games = games, byes = id_of[sitout])
+    }
+
+    if (ok && all(games_cnt == G) && all(byes_cnt == (R - G))) return(rounds)
+  }
+  NULL
+}

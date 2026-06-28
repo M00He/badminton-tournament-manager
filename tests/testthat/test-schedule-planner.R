@@ -138,3 +138,42 @@ test_that("circle_factorization: ungueltige Eingaben werden abgelehnt", {
   expect_error(circle_factorization(0L))   # P < 2
   expect_error(circle_factorization(1L))   # P < 2, ungerade
 })
+
+test_that("generate_schedule: 14/3, 7 Runden ist valide", {
+  players <- 1:14
+  fs <- field_sequence_for(14L, 3L, 7L)
+  sched <- generate_schedule(players, fs, seed = 1L)
+  expect_false(is.null(sched))
+  v <- verify_schedule(sched, players)
+  expect_true(v$ok)
+  expect_equal(unname(v$games_per_player[1]), 6L)
+  expect_equal(unname(v$byes_per_player[1]), 1L)
+})
+
+test_that("generate_schedule: Property-Sweep ueber mehrere Konfigurationen", {
+  configs <- list(c(P=8, F=2, R=5), c(P=14, F=3, R=7), c(P=14, F=3, R=11),
+                  c(P=12, F=3, R=6), c(P=16, F=4, R=7), c(P=18, F=4, R=9))
+  for (cf in configs) {
+    P <- cf["P"]; Fm <- cf["F"]; R <- cf["R"]
+    fs <- field_sequence_for(P, Fm, R)
+    expect_false(is.null(fs), info = sprintf("infeasible %d/%d/%d", P, Fm, R))
+    for (sd in 1:3) {
+      sched <- generate_schedule(seq_len(P), fs, seed = sd)
+      expect_false(is.null(sched), info = sprintf("NULL %d/%d/%d seed %d", P, Fm, R, sd))
+      v <- verify_schedule(sched, seq_len(P))
+      expect_true(v$ok, info = sprintf("invalid %d/%d/%d seed %d: %s",
+                                       P, Fm, R, sd, paste(v$errors, collapse = "; ")))
+    }
+  }
+})
+
+test_that("generate_schedule: Saettigung 8 Spieler/2 Felder/7 Runden (G=P-1)", {
+  players <- 1:8                                   # 4F=8=P, keine Pausen, G=7=P-1
+  fs <- field_sequence_for(8L, 2L, 7L)
+  expect_equal(fs, rep(2L, 7L))
+  sched <- generate_schedule(players, fs, seed = 1L)
+  expect_false(is.null(sched))
+  v <- verify_schedule(sched, players)
+  expect_true(v$ok)
+  expect_equal(unname(v$games_per_player[1]), 7L)
+})
