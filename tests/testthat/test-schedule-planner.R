@@ -244,5 +244,5 @@ test_that("reoptimize_tail bleibt valide und nie schlechter", {
   p_best <- schedule_balance_penalty(best,    strength, from_round = 2L)
   expect_lte(p_best, p_cur)
   # gespielte Runde 1 unveraendert
-  expect_equal(best[[1]]$games[[1]]$team1, current[[1]]$games[[1]]$team1)
+  expect_equal(best[[1]], current[[1]])   # gespielte Runde 1 vollstaendig unveraendert
 })

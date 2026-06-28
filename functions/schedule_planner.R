@@ -228,6 +228,7 @@ schedule_balance_penalty <- function(schedule, strength, from_round = 1L) {
     for (gm in rd$games) {
       for (tm in list(gm$team1, gm$team2)) {
         s1 <- strength[as.character(tm[1])]; s2 <- strength[as.character(tm[2])]
+        # Konvention: Spieler genau auf dem Median zaehlt zur "schwachen" Seite (<=)
         if (isTRUE((s1 <= med) == (s2 <= med))) pen <- pen + 1
       }
     }
