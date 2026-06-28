@@ -43,3 +43,52 @@ verify_schedule <- function(schedule, players) {
        partner_repeats = repeats, equal_games = equal_games,
        equal_byes = equal_byes, errors = errors)
 }
+
+# Größtes gerades G, das in R Runden bei P Spielern und max F_max Feldern aufgeht.
+max_games_for <- function(P, F_max, R) {
+  best <- 0L
+  for (G in seq.int(2L, min(P - 1L, R), by = 1L)) {
+    if ((P * G) %% 4L != 0L) next            # P*G/4 muss ganzzahlig sein
+    S <- (P * G) %/% 4L                        # benötigte Feld-Summe
+    if (S < R) next                            # jede Runde >= 1 Feld
+    if (S > R * F_max) next                    # jede Runde <= F_max Felder
+    best <- G
+  }
+  best
+}
+
+# Felder-Folge (absteigend) für R Runden; NULL falls infeasible.
+field_sequence_for <- function(P, F_max, R) {
+  G <- max_games_for(P, F_max, R)
+  if (G == 0L) return(NULL)
+  S <- (P * G) %/% 4L
+  q <- S %/% R; rem <- S %% R
+  fs <- c(rep(q + 1L, rem), rep(q, R - rem))    # Summe = S, jedes in {q, q+1}
+  sort(fs, decreasing = TRUE)                    # mehr Felder zuerst
+}
+
+# Feasibility-Leiter: für jede sinnvolle Rundenzahl eine Option.
+plan_options <- function(P, F_max, min_games = 4L, max_rounds = NULL) {
+  if (is.null(max_rounds)) max_rounds <- P - 1L  # G <= P-1 ist die Obergrenze
+  out <- list()
+  for (R in seq.int(2L, max_rounds)) {
+    G <- max_games_for(P, F_max, R)
+    if (G < min_games) next
+    fs <- field_sequence_for(P, F_max, R)
+    if (is.null(fs)) next
+    out[[length(out) + 1L]] <- list(rounds = R, games = G,
+                                    byes = R - G, field_sequence = fs)
+  }
+  out
+}
+
+# Vorgeschlagene Rundenzahl: G möglichst in 6..8, bei Gleichstand wenige Pausen.
+default_plan_rounds <- function(P, F_max) {
+  opts <- plan_options(P, F_max)
+  if (length(opts) == 0L) return(NA_integer_)
+  score <- vapply(opts, function(o) {
+    target <- if (o$games >= 6L && o$games <= 8L) 0L else min(abs(o$games - 6L), abs(o$games - 8L))
+    target * 100L + o$byes                       # erst Ziel-Band, dann wenige Pausen
+  }, integer(1))
+  opts[[which.min(score)]]$rounds
+}

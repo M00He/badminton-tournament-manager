@@ -59,3 +59,39 @@ test_that("verify_schedule erkennt falsche Pausen-Zuweisung", {
   expect_false(v$ok)
   expect_true(any(grepl("Pausen", v$errors)))
 })
+
+test_that("max_games_for: 14 Spieler, 3 Felder", {
+  expect_equal(max_games_for(14L, 3L, 7L), 6L)    # 7 Runden -> 6 Spiele
+  expect_equal(max_games_for(14L, 3L, 11L), 8L)   # 11 Runden -> 8 Spiele
+})
+
+test_that("field_sequence_for: Summe und Obergrenze stimmen", {
+  fs <- field_sequence_for(14L, 3L, 11L)
+  expect_equal(length(fs), 11L)
+  expect_equal(sum(fs), 14L * 8L / 4L)            # = 28
+  expect_true(all(fs >= 1L & fs <= 3L))
+  expect_equal(max_games_for(14L, 3L, 11L), 8L)
+})
+
+test_that("field_sequence_for: 7 Runden 14/3 nutzt durchgehend 3 Felder", {
+  fs <- field_sequence_for(14L, 3L, 7L)
+  expect_equal(fs, rep(3L, 7L))                   # 14*6/4 = 21 = 7*3
+})
+
+test_that("plan_options enthaelt 7- und 11-Runden-Variante fuer 14/3", {
+  opts <- plan_options(14L, 3L)
+  rs <- vapply(opts, function(o) o$rounds, integer(1))
+  gs <- vapply(opts, function(o) o$games, integer(1))
+  expect_true(7L %in% rs)
+  expect_equal(gs[rs == 7L], 6L)
+  expect_true(11L %in% rs)
+  expect_equal(gs[rs == 11L], 8L)
+  # jede Option: byes = rounds - games
+  for (o in opts) expect_equal(o$byes, o$rounds - o$games)
+})
+
+test_that("default_plan_rounds schlaegt eine spielbare Rundenzahl vor", {
+  R <- default_plan_rounds(14L, 3L)
+  g <- max_games_for(14L, 3L, R)
+  expect_true(g >= 6L && g <= 8L)
+})
