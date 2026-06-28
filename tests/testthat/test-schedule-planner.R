@@ -126,3 +126,15 @@ test_that("circle_factorization: P-1 Runden, alle Paare genau einmal", {
   expect_equal(length(keys), length(unique(keys)))
   expect_equal(length(unique(keys)), choose(P, 2))  # alle C(P,2) Paare
 })
+
+test_that("circle_factorization: P=2 Grenzfall", {
+  rounds <- circle_factorization(2L)
+  expect_equal(length(rounds), 1L)
+  expect_equal(rounds[[1]][[1]], c(2L, 1L))
+})
+
+test_that("circle_factorization: ungueltige Eingaben werden abgelehnt", {
+  expect_error(circle_factorization(3L))   # ungerades P
+  expect_error(circle_factorization(0L))   # P < 2
+  expect_error(circle_factorization(1L))   # P < 2, ungerade
+})
