@@ -11,13 +11,16 @@ Link nutzbar.
 
 ## Bedienung
 
-1. **Setup** — Spieler anlegen (Name + Geschlecht), Einstellungen wählen
-   (Runden, Felder, Spielsystem, **Tiebreaker-Reihenfolge**), „Turnier starten".
+1. **Setup** — Spieler anlegen (Name + Geschlecht), **Spielplan-Modus** wählen
+   (Voraus-Plan / Rundenweise — siehe unten) und Einstellungen (Felder, Runden bzw.
+   Länge, Spielsystem, **Tiebreaker-Reihenfolge**), „Turnier starten".
 2. **Spieltag**
    - **Runde 1** wird vor Ort gelost und **manuell** eingetragen (Spieler je Feld
      aus Dropdowns → „Paarungen übernehmen").
-   - **Ab Runde 2** schlägt die App eine Auslosung vor („Auslosung vorschlagen"):
-     Vorschau mit Aussetzern und erfüllten Kriterien → „Übernehmen" oder „Neu würfeln".
+   - **Ab Runde 2** schlägt die App eine Runde vor. Im **Voraus-Plan**-Modus
+     zusätzlich ein **Gesamtplan (Vorschau)** über alle Restrunden; „Anders planen"
+     liefert eine gleichwertige Alternative. Im **Rundenweise**-Modus „Auslosung
+     vorschlagen" / „Neu würfeln" mit frei wählbarer Felderzahl pro Runde.
    - Ergebnisse je Feld eintragen (mit Validierung), „Runde abschließen" (sperrt die
      Felder), „Nächste Runde".
    - Seitlich läuft die **Live-Rangliste** mit.
@@ -31,13 +34,22 @@ Link nutzbar.
 - Bei Gleichstand: **Punktedifferenz** (echte Ballpunkte) und **direkter Vergleich** —
   die Reihenfolge der beiden wird vor Turnierstart gewählt.
 
-## Auslosung (ab Runde 2)
+## Spielplan-Modi
 
-Score-and-Select-Verfahren mit Prioritäten-Hierarchie (deterministisch per Seed):
-gleiche Spielzahl für alle (Aussetzer fair rotiert) > keine Partner-Wiederholung >
-keine Gegner aus der Vorrunde > keine wiederholten Gegner-Teams > keine wiederholten
-Einzelgegner > stark/schwach gepaart. Die App wählt die beste Auslosung, nicht die erste
-brauchbare.
+Im **Setup** wählbar (Standard: Voraus-Plan):
+
+- **Voraus-Plan** — die App garantiert über das ganze Turnier zwei Dinge: **alle
+  Spieler haben gleich viele Spiele** und **kein Spieler spielt zweimal mit demselben
+  Partner** (Gegner dürfen sich wiederholen). Pausen rotieren gleichmäßig; die
+  Felderzahl pro Runde darf variieren, damit längere Turniere aufgehen. Aus Spielerzahl
+  und Feldern schlägt die App passende Rundenzahlen vor (z. B. 14 Spieler / 3 Felder →
+  7 Runden mit je 6 Spielen, oder 11 Runden mit je 8). Es existiert jederzeit ein
+  vollständiger gültiger Restplan; nach jeder Runde wird er an die aktuelle Tabelle
+  **re-optimiert** (stark/schwach paaren), ohne die Garantien zu verletzen.
+- **Rundenweise** — die frühere Auslosung: ein Score-and-Select-Verfahren mit
+  Prioritäten-Hierarchie (deterministisch per Seed), das pro Runde die beste von vielen
+  Kandidaten-Auslosungen wählt. Flexibel (Felderzahl pro Runde frei), aber ohne globale
+  Garantie über das ganze Turnier.
 
 ## Persistenz (wichtig)
 
@@ -66,7 +78,9 @@ Benötigte Pakete: `shiny`, `bslib`, `jsonlite`.
 │   ├── tournament_state.R         # State-Modell, Mutationen, JSON-Serialisierung/Migration
 │   ├── game_system.R              # Spielsysteme + Ergebnis-Validierung
 │   ├── ranking_calculation.R      # Rangliste (Sätze + konfigurierbarer Tiebreaker)
-│   ├── draw_engine.R              # Score-and-Select-Auslosung
+│   ├── schedule_planner.R         # Voraus-Plan-Generator (gleiche Spiele + keine Partner-Wdh.)
+│   ├── plan_integration.R         # Brücke State ↔ Generator (nächste Runde / Gesamtplan)
+│   ├── draw_engine.R              # Rundenweise Score-and-Select-Auslosung
 │   └── app_helpers.R              # reine UI-Hilfsfunktionen
 ├── modules/
 │   ├── module_setup.R             # Spieler & Einstellungen

@@ -13,3 +13,6 @@ Thumbs.db
 
 # SDD scratch (briefs, diffs, ledger)
 .superpowers/
+
+# Lokale Turnierdaten (gehoeren nicht ins Repo)
+tournaments/
