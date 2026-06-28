@@ -190,7 +190,7 @@ module_matchday_server <- function(id, state_rv) {
           tagList(
             strong(sprintf("Runde %d%s", rd$round,
                            if (rd$round == s$current_round) " — jetzt dran" else "")),
-            tags$ul(lapply(rd$pairings, function(p) tags$li(
+            if (length(rd$pairings)) tags$ul(lapply(rd$pairings, function(p) tags$li(
               sprintf("Feld %d: %s & %s  vs  %s & %s", p$field,
                 player_name(s, p$team1[1]), player_name(s, p$team1[2]),
                 player_name(s, p$team2[1]), player_name(s, p$team2[2]))))),

@@ -55,8 +55,7 @@ plan_remaining_rounds <- function(state, seed = 1L, n_candidates = 300L) {
     if (is.null(rd)) return(NULL)
     list(round = r, pairings = rd$games, byes = rd$byes)
   })
-  out <- out[!vapply(out, is.null, logical(1))]
-  if (length(out) == 0) return(NULL)
+  if (any(vapply(out, is.null, logical(1)))) return(NULL)  # gebrochener Rest -> NULL (kein stilles Verschieben der Runden)
   out
 }
 
