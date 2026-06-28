@@ -28,6 +28,18 @@ test_that("module_setup: Turnier starten setzt Status + Einstellungen", {
   })
 })
 
+test_that("module_setup: Testspieler generieren legt Spieler 1..N mit stabilen IDs an", {
+  rv <- reactiveVal(new_tournament_state())
+  testServer(module_setup_server, args = list(state_rv = rv), {
+    session$setInputs(gen_count = 15)
+    session$setInputs(gen_players = 1)
+    expect_equal(nrow(rv()$players), 15L)
+    expect_equal(rv()$players$name[1], "Spieler 1")
+    expect_equal(rv()$players$name[15], "Spieler 15")
+    expect_equal(rv()$players$player_id, 1:15)
+  })
+})
+
 test_that("module_setup: 'Turnier starten' bei laufendem Turnier erst nach Bestätigung", {
   s <- new_tournament_state()
   for (nm in c("A","B","C","D")) s <- ts_add_player(s, nm, "m")

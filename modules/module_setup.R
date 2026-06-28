@@ -6,6 +6,13 @@ module_setup_ui <- function(id) {
     col_widths = c(6, 6),
     card(
       card_header("Spieler"),
+      div(
+        style = "background:#eef6ff;padding:8px;border-radius:5px;margin-bottom:8px;",
+        strong("Schnell: Testspieler"),
+        div(style = "display:flex;gap:6px;align-items:center;margin-top:4px;",
+          numericInput(ns("gen_count"), NULL, value = 8, min = 4, max = 24, width = "90px"),
+          actionButton(ns("gen_players"), "generieren", class = "btn-sm btn-info"))
+      ),
       textInput(ns("new_name"), "Name:"),
       selectInput(ns("new_gender"), "Geschlecht:", c("männlich" = "m", "weiblich" = "w")),
       actionButton(ns("add"), "Hinzufügen", class = "btn-primary", icon = icon("plus")),
@@ -63,6 +70,23 @@ module_setup_server <- function(id, state_rv) {
 
     observeEvent(input$remove_player, {
       state_rv(ts_remove_player(state_rv(), as.integer(input$remove_player)))
+    })
+
+    # Schnell-Generierung von Testspielern (nur vor Turnierstart)
+    observeEvent(input$gen_players, {
+      s <- state_rv()
+      if (s$status != "setup") {
+        showNotification("Testspieler nur vor Turnierstart generieren.", type = "warning"); return()
+      }
+      n <- input$gen_count
+      if (is.null(n) || is.na(n) || n < 1) {
+        showNotification("Bitte eine Anzahl angeben.", type = "warning"); return()
+      }
+      n <- as.integer(n)
+      s$players <- empty_players_df()
+      for (i in seq_len(n)) s <- ts_add_player(s, paste("Spieler", i), if (i %% 2) "m" else "w")
+      state_rv(s)
+      showNotification(paste(n, "Testspieler generiert."), type = "message")
     })
 
     start_now <- function() {
