@@ -191,6 +191,7 @@ test_that("generate_schedule respektiert fixierte Runde 1", {
   # Runde 1 unveraendert
   expect_equal(sched[[1]]$games[[1]]$team1, c(1L, 2L))
   expect_equal(sort(sched[[1]]$byes), c(13L, 14L))
+  expect_equal(sched[[1]], r1)   # gesamte Runde 1 unveraendert durchgereicht
   v <- verify_schedule(sched, players)
   expect_true(v$ok)
   # die in R1 gesetzten Partner duerfen nicht erneut auftauchen (H2 ueber gesamten Plan)
