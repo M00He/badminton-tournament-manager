@@ -36,6 +36,7 @@ verify_schedule <- function(schedule, players) {
 
   repeats <- names(partner_seen)[vapply(partner_seen, function(x) x > 1L, logical(1))]
   equal_games <- length(unique(games_cnt)) == 1L
+  # equal_byes ist auch bei 0 Pausen je Spieler korrekt TRUE (alle gleich = 0)
   equal_byes  <- length(unique(byes_cnt)) == 1L
   ok <- length(errors) == 0L && length(repeats) == 0L && equal_games && equal_byes
   list(ok = ok, games_per_player = games_cnt, byes_per_player = byes_cnt,

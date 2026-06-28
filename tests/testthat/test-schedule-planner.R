@@ -42,3 +42,20 @@ test_that("verify_schedule erkennt ungleiche Spielzahl", {
   v <- verify_schedule(sched, players)
   expect_false(v$equal_games)
 })
+
+test_that("verify_schedule erkennt doppelt belegten Spieler in einer Runde", {
+  players <- 1:4
+  sched <- list(mk_round(list(list(c(1L,2L), c(1L,3L))), c(4L)))  # Spieler 1 zweimal aktiv
+  v <- verify_schedule(sched, players)
+  expect_false(v$ok)
+  expect_true(any(grepl("doppelt", v$errors)))
+})
+
+test_that("verify_schedule erkennt falsche Pausen-Zuweisung", {
+  players <- 1:6
+  # nur 1,2,3,4 spielen -> 5,6 muessten Pause haben; hier faelschlich nur 6 als Pause
+  sched <- list(mk_round(list(list(c(1L,2L), c(3L,4L))), c(6L)))
+  v <- verify_schedule(sched, players)
+  expect_false(v$ok)
+  expect_true(any(grepl("Pausen", v$errors)))
+})
