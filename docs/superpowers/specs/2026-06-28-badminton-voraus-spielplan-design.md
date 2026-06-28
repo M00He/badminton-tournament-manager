@@ -39,7 +39,7 @@ Gegeben **P** Spieler und **F_max** verfügbare Felder. Eine **Felder-Folge** `f
 
 **Vorschlags-Logik (`plan_options(P, F_max)`):** Eingaben sind **P** und **F_max**; die **Rundenzahl R ist der nutzer-seitige Regler** (du denkst in Runden), die App leitet Spiele `G` und die Felder-Folge ab.
 - Für jede Rundenzahl `R` (ab dem Minimum, das `G ≥ 4` erlaubt, bis zu einer sinnvollen Obergrenze):
-  - **Max. feasible `G`** in R Runden: größtes gerades `G` mit `P·G` durch 4 teilbar, `G ≤ P−1` und `Σf_r = P·G/4` mit `R` Summanden je `1 ≤ f_r ≤ F_max` darstellbar (d. h. `G ≤ R` und `P·G/4 ≤ R·F_max`).
+  - **Max. feasible `G`** in R Runden: größtes `G` mit `P·G` durch 4 teilbar (`G` muss **nicht** gerade sein — bei `P` teilbar durch 4 ist ungerades `G` gültig), `G ≤ P−1` und `Σf_r = P·G/4` mit `R` Summanden je `1 ≤ f_r ≤ F_max` darstellbar (d. h. `G ≤ R` und `P·G/4 ≤ R·F_max`).
   - **Felder-Folge:** `Σf_r = P·G/4` auf R Runden verteilt, je `≤ F_max` (möglichst viele Runden mit F_max, der Rest kleiner).
   - Option: `{ R, G, byes = R−G, field_sequence }`.
 - Die UI zeigt die Tabelle (z. B. „**7 Runden → 6 Spiele, 1× Pause**" · „10 Runden → 8 Spiele, 2× Pause" · „**11 Runden → 8 Spiele, 3× Pause**") und **schlägt** eine Rundenzahl vor (Default: G im Bereich 6–8 bei wenigen Pausen). Der Nutzer stellt die Rundenzahl ein.
