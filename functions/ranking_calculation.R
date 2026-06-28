@@ -1,12 +1,13 @@
 # Rangliste — ID-basiert, Wertung nach gewonnenen Sätzen + konfigurierbarer Tiebreaker
 
 calculate_player_stats <- function(games, player_ids) {
+  n <- length(player_ids)
   stats <- data.frame(
-    player_id = player_ids, games_played = 0L,
-    match_wins = 0L, match_losses = 0L,
-    sets_won = 0L, sets_lost = 0L,
-    rally_points_for = 0L, rally_points_against = 0L,
-    rally_point_diff = 0L, stringsAsFactors = FALSE
+    player_id = as.integer(player_ids), games_played = rep(0L, n),
+    match_wins = rep(0L, n), match_losses = rep(0L, n),
+    sets_won = rep(0L, n), sets_lost = rep(0L, n),
+    rally_points_for = rep(0L, n), rally_points_against = rep(0L, n),
+    rally_point_diff = rep(0L, n), stringsAsFactors = FALSE
   )
   if (nrow(games) == 0) return(stats)
   for (i in seq_len(nrow(games))) {

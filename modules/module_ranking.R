@@ -23,10 +23,7 @@ module_ranking_server <- function(id, state_rv) {
       if (cat != "all") {
         ids <- s$players$player_id[s$players$active & s$players$gender == cat]
       }
-      if (length(ids) == 0) return(data.frame(rank = integer(0), player_id = integer(0),
-        games_played = integer(0), sets_won = integer(0), sets_lost = integer(0),
-        match_wins = integer(0), match_losses = integer(0), rally_points_for = integer(0),
-        rally_points_against = integer(0), rally_point_diff = integer(0)))
+      if (length(ids) == 0) return(create_ranking(s$games, integer(0), s$settings$tiebreaker_order %||% "diff_first"))
       create_ranking(s$games, ids, s$settings$tiebreaker_order %||% "diff_first")
     })
 

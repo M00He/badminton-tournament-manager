@@ -69,3 +69,10 @@ test_that("create_ranking: tiebreaker_order steuert Differenz vs. direkten Vergl
 test_that("create_ranking validiert tiebreaker_order", {
   expect_error(create_ranking(empty_games_df(), 1:2, tiebreaker_order = "foo"))
 })
+
+test_that("create_ranking mit leeren player_ids liefert 0-Zeilen-Tabelle (kein Crash)", {
+  g <- mk_game(1L, 1L, 1L, 1L, 2L, 3L, 4L, c(11L, 11L), c(5L, 7L))
+  d <- create_ranking(g, integer(0))
+  expect_equal(nrow(d), 0L)
+  expect_true(all(c("rank","player_id","sets_won","rally_point_diff") %in% names(d)))
+})
