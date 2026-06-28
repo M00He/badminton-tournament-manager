@@ -95,3 +95,25 @@ default_plan_rounds <- function(P, F_max) {
   }, integer(1))
   opts[[which.min(score)]]$rounds
 }
+
+# 1-Faktorisierung von K_P (P gerade) per Kreis-/Round-Robin-Methode.
+# Liefert P-1 perfekte Paarungen; jedes Paar {i,j} kommt genau einmal vor.
+circle_factorization <- function(P) {
+  stopifnot(P %% 2L == 0L, P >= 2L)
+  fixed <- P
+  ring <- seq_len(P - 1L)            # rotierende Spieler
+  rounds <- vector("list", P - 1L)
+  for (r in seq_len(P - 1L)) {
+    pairs <- list()
+    pairs[[1]] <- c(fixed, ring[1])  # fester Spieler gegen Kopf des Rings
+    half <- (P - 2L) %/% 2L
+    for (i in seq_len(half)) {
+      a <- ring[1L + i]
+      b <- ring[length(ring) - i + 1L]
+      pairs[[length(pairs) + 1L]] <- c(a, b)
+    }
+    rounds[[r]] <- pairs
+    ring <- c(ring[length(ring)], ring[-length(ring)])  # um 1 rotieren
+  }
+  rounds
+}

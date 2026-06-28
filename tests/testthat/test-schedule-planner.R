@@ -110,3 +110,19 @@ test_that("Schutz vor absteigendem seq.int / max_rounds < 2", {
   expect_equal(max_games_for(2L, 1L, 5L), 0L)     # P=2 -> Obergrenze < 2 -> 0
   expect_equal(length(plan_options(14L, 3L, max_rounds = 1L)), 0L)
 })
+
+test_that("circle_factorization: P-1 Runden, alle Paare genau einmal", {
+  P <- 8L
+  rounds <- circle_factorization(P)
+  expect_equal(length(rounds), P - 1L)            # 7 Runden
+  # jede Runde: P/2 disjunkte Paare, deckt 1..P
+  for (rd in rounds) {
+    expect_equal(length(rd), P %/% 2L)
+    expect_setequal(unlist(rd), 1:P)
+  }
+  # jedes Paar genau einmal über alle Runden
+  keys <- unlist(lapply(rounds, function(rd)
+    vapply(rd, function(p) paste(sort(p), collapse = "|"), character(1))))
+  expect_equal(length(keys), length(unique(keys)))
+  expect_equal(length(unique(keys)), choose(P, 2))  # alle C(P,2) Paare
+})
