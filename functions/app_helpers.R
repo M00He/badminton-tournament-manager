@@ -21,6 +21,17 @@ player_name <- function(state, id) {
   if (length(k)) state$players$name[k] else "?"
 }
 
+# Verfügbare Spieler-IDs für einen Dropdown-Slot der manuellen Runde-1-Eingabe:
+# alle aktiven IDs minus die in ANDEREN Slots gewählten; die eigene Wahl bleibt erhalten.
+# all_ids und die Werte in `selections` sind character; `selections` ist nach Slot benannt.
+slot_available_ids <- function(all_ids, selections, slot) {
+  own <- selections[[slot]]
+  own <- if (is.null(own)) "" else own
+  others <- unlist(selections[setdiff(names(selections), slot)], use.names = FALSE)
+  others <- others[!is.na(others) & nzchar(others)]
+  all_ids[!(all_ids %in% others) | all_ids == own]
+}
+
 state_summary <- function(state) {
   status_label <- switch(state$status,
     setup = "Noch nicht gestartet",

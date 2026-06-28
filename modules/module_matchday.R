@@ -84,6 +84,24 @@ module_matchday_server <- function(id, state_rv) {
       }, error = function(e) showNotification(conditionMessage(e), type = "error"))
     })
 
+    # Manuelle Runde-1-Dropdowns dynamisch filtern: bereits gewählte Spieler
+    # verschwinden aus den übrigen Slots -> Doppelauswahl ist gar nicht erst möglich.
+    observe({
+      s <- state_rv()
+      if (s$status != "running" || s$current_round != 1 || nrow(cur_round_games()) > 0) return()
+      pl <- ts_active_players(s)
+      all_ids <- as.character(pl$player_id)
+      name_by_id <- setNames(pl$name, as.character(pl$player_id))
+      ids <- unlist(lapply(seq_len(s$settings$num_fields), function(f) sprintf("m_f%d_s%d", f, 1:4)))
+      sel <- setNames(lapply(ids, function(i) input[[i]]), ids)
+      for (i in ids) {
+        avail <- slot_available_ids(all_ids, sel, i)
+        choices <- c("—" = "", setNames(avail, unname(name_by_id[avail])))
+        own <- sel[[i]]; if (is.null(own)) own <- ""
+        updateSelectInput(session, i, choices = choices, selected = own)
+      }
+    })
+
     # ---- Runde >= 2: automatische Auslosung mit Vorschau ----
     do_preview <- function() {
       s <- state_rv()
