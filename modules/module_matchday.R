@@ -20,9 +20,16 @@ module_matchday_server <- function(id, state_rv) {
     preview_rv <- reactiveVal(NULL)
     seed_rv <- reactiveVal(1L)
 
-    # Felder für DIESE Runde (Standard = Einstellung, aber pro Runde reduzierbar)
+    # Felder für DIESE Runde. Im Plan-Modus durch die Felder-Folge fixiert,
+    # sonst Einstellung (pro Runde reduzierbar über den Picker).
     round_fields <- reactive({
-      dflt <- state_rv()$settings$num_fields
+      s <- state_rv()
+      if (identical(s$settings$schedule_mode, "plan") && !is.null(s$settings$plan_field_sequence)) {
+        fs <- s$settings$plan_field_sequence
+        r <- s$current_round
+        if (r >= 1 && r <= length(fs)) return(as.integer(fs[r]))
+      }
+      dflt <- s$settings$num_fields
       nf <- input$round_fields
       if (is.null(nf) || is.na(nf) || nf < 1) dflt else min(as.integer(nf), dflt)
     })
@@ -43,12 +50,18 @@ module_matchday_server <- function(id, state_rv) {
       if (s$status == "setup") return(em("Bitte zuerst im Setup ein Turnier starten."))
       sys <- get_game_system_info(s$settings$game_system)
       has_games <- nrow(cur_round_games()) > 0
+      plan_mode <- identical(s$settings$schedule_mode, "plan")
       controls <- if (!has_games && s$current_round >= 2) {
-        tagList(
-          actionButton(ns("preview"), "Auslosung vorschlagen", class = "btn-primary"),
-          actionButton(ns("reroll"), "Neu würfeln", class = "btn-info"))
+        if (plan_mode)
+          tagList(
+            actionButton(ns("preview"), "Geplante Runde anzeigen", class = "btn-primary"),
+            actionButton(ns("reroll"), "Anders planen", class = "btn-info"))
+        else
+          tagList(
+            actionButton(ns("preview"), "Auslosung vorschlagen", class = "btn-primary"),
+            actionButton(ns("reroll"), "Neu würfeln", class = "btn-info"))
       } else NULL
-      field_picker <- if (!has_games && s$settings$num_fields > 1)
+      field_picker <- if (!has_games && !plan_mode && s$settings$num_fields > 1)
         numericInput(ns("round_fields"), "Felder diese Runde:", value = s$settings$num_fields,
                      min = 1, max = s$settings$num_fields, width = "150px") else NULL
       div(
@@ -122,10 +135,21 @@ module_matchday_server <- function(id, state_rv) {
     # ---- Runde >= 2: automatische Auslosung mit Vorschau ----
     do_preview <- function() {
       s <- state_rv()
-      d <- generate_round_draw(s, s$current_round, seed = seed_rv(), n_candidates = 300L,
-                               n_fields = round_fields())
-      if (is.null(d)) { showNotification("Keine Auslosung möglich (zu wenige Spieler).", type = "error"); return() }
-      preview_rv(d)
+      if (identical(s$settings$schedule_mode, "plan")) {
+        d <- plan_next_round_pairings(s, seed = seed_rv(), n_candidates = 300L)
+        if (is.null(d)) {
+          showNotification("Plan: keine gültige Fortsetzung gefunden.", type = "error"); return()
+        }
+        d$quality <- "gleiche Spielzahl + keine Partner-Wiederholung (garantiert)"
+        preview_rv(d)
+      } else {
+        d <- generate_round_draw(s, s$current_round, seed = seed_rv(), n_candidates = 300L,
+                                 n_fields = round_fields())
+        if (is.null(d)) {
+          showNotification("Keine Auslosung möglich (zu wenige Spieler).", type = "error"); return()
+        }
+        preview_rv(d)
+      }
     }
     observeEvent(input$preview, do_preview())
     observeEvent(input$reroll, { seed_rv(seed_rv() + 1L); do_preview() })
