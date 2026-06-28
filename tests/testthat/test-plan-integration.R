@@ -8,7 +8,7 @@ source("../../functions/plan_integration.R", encoding = "UTF-8")
 mk_started_plan <- function() {
   s <- new_tournament_state(name = "T")
   for (i in seq_len(8)) s <- ts_add_player(s, paste("Spieler", i), if (i %% 2) "m" else "w")
-  fs <- field_sequence_for(8L, 2L, 5L)            # c(2,2,2,1,1), G=4
+  fs <- field_sequence_for(8L, 2L, 5L)            # rep(2,5), G=5 (8 Spieler, 2 Felder -> keine Pause)
   s <- ts_start_tournament(s, 99L, 99L, "best_of_3_11", "diff_first",
                            schedule_mode = "plan", plan_field_sequence = fs)
   r1 <- list(
