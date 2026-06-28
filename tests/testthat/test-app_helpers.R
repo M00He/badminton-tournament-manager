@@ -24,3 +24,9 @@ test_that("state_summary liefert Vorschau-Felder", {
   expect_equal(summ$num_rounds, 5L)
   expect_equal(summ$status_label, "Läuft")
 })
+
+test_that("player_name liefert Namen oder Fragezeichen", {
+  s <- ts_add_player(new_tournament_state(), "Anna", "w")
+  expect_equal(player_name(s, 1L), "Anna")
+  expect_equal(player_name(s, 99L), "?")
+})

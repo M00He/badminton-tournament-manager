@@ -16,6 +16,11 @@ backup_filename <- function(state) {
   paste0(base, "_runde", state$current_round, ".json")
 }
 
+player_name <- function(state, id) {
+  k <- which(state$players$player_id == id)
+  if (length(k)) state$players$name[k] else "?"
+}
+
 state_summary <- function(state) {
   status_label <- switch(state$status,
     setup = "Noch nicht gestartet",

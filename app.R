@@ -5,6 +5,7 @@ library(bslib)
 for (f in list.files("functions", pattern = "[.]R$", full.names = TRUE)) {
   source(f, encoding = "UTF-8")
 }
+source("modules/module_setup.R", encoding = "UTF-8")
 
 placeholder <- function(txt) div(style = "color:#888; font-style:italic; padding:20px;", txt)
 
@@ -12,7 +13,7 @@ app_ui <- page_navbar(
   title = "Badminton Turnier Manager",
   theme = bs_theme(version = 5, bootswatch = "flatly"),
   header = tags$head(tags$script(src = "persist.js")),
-  nav_panel("Setup", placeholder("Setup folgt (Phase 2b-2).")),
+  nav_panel("Setup", module_setup_ui("setup")),
   nav_panel("Spieltag", placeholder("Spieltag folgt (Phase 2b-2).")),
   nav_panel("Rangliste & Sieger", placeholder("Rangliste folgt (Phase 2b-2).")),
   nav_panel(
@@ -37,6 +38,7 @@ app_ui <- page_navbar(
 
 app_server <- function(input, output, session) {
   state_rv <- reactiveVal(new_tournament_state())
+  module_setup_server("setup", state_rv)
 
   # Auto-Resume beim Verbindungsaufbau
   observeEvent(input$restored_state, {
