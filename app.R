@@ -23,8 +23,8 @@ app_ui <- page_navbar(
       card(
         card_header("Sicherung"),
         p("Lädt den aktuellen Turnierstand als JSON-Datei herunter."),
-        actionButton("download_backup_btn", "Sicherung herunterladen",
-                     class = "btn-primary", icon = icon("download")),
+        downloadButton("download_backup", "Sicherung herunterladen",
+                       class = "btn-primary"),
         hr(),
         fileInput("restore_file", "Sicherung laden (.json):", accept = ".json"),
         hr(),
@@ -59,12 +59,15 @@ app_server <- function(input, output, session) {
     session$sendCustomMessage("persist_state", state_to_json(state_rv()))
   }, ignoreInit = TRUE)
 
-  # Backup-Download
-  observeEvent(input$download_backup_btn, {
-    s <- state_rv()
-    session$sendCustomMessage("download_backup",
-      list(filename = backup_filename(s), json = state_to_json(s)))
-  })
+  # Backup-Download — nativer downloadHandler (echter, vom Klick ausgelöster Download)
+  output$download_backup <- downloadHandler(
+    filename = function() backup_filename(state_rv()),
+    content = function(file) {
+      con <- file(file, open = "wb")
+      on.exit(close(con))
+      writeBin(charToRaw(enc2utf8(state_to_json(state_rv()))), con)
+    }
+  )
 
   # Restore aus Datei → Vorschau → Bestätigung
   observeEvent(input$restore_file, {
