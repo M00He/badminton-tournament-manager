@@ -1,0 +1,53 @@
+source("../../functions/tournament_state.R", encoding = "UTF-8")
+source("../../functions/game_system.R", encoding = "UTF-8")
+source("../../functions/ranking_calculation.R", encoding = "UTF-8")
+source("../../functions/draw_engine.R", encoding = "UTF-8")
+source("../../functions/app_helpers.R", encoding = "UTF-8")
+source("../../modules/module_matchday.R", encoding = "UTF-8")
+library(shiny)
+
+mk_started <- function(n = 8, fields = 2) {
+  s <- new_tournament_state(name = "T")
+  for (i in seq_len(n)) s <- ts_add_player(s, paste("P", i), if (i %% 2) "m" else "w")
+  ts_start_tournament(s, 5L, fields, "best_of_3_11")
+}
+
+test_that("module_matchday: Runde 1 manuell eintragen schreibt die Paarungen", {
+  rv <- reactiveVal(mk_started(8, 2))
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(
+      m_f1_s1 = "1", m_f1_s2 = "2", m_f1_s3 = "3", m_f1_s4 = "4",
+      m_f2_s1 = "5", m_f2_s2 = "6", m_f2_s3 = "7", m_f2_s4 = "8")
+    session$setInputs(manual_accept = 1)
+    g <- rv()$games[rv()$games$round == 1, ]
+    expect_equal(nrow(g), 2L)                                   # 2 Felder
+    expect_equal(sort(c(g$t1_p1, g$t1_p2, g$t2_p1, g$t2_p2)), 1:8)
+    expect_true(all(is.na(g$t1_points)))                       # noch keine Ergebnisse
+  })
+})
+
+test_that("module_matchday: Runde 1 manuell blockiert doppelten Spieler", {
+  rv <- reactiveVal(mk_started(8, 2))
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(
+      m_f1_s1 = "1", m_f1_s2 = "1", m_f1_s3 = "3", m_f1_s4 = "4",  # Spieler 1 doppelt
+      m_f2_s1 = "5", m_f2_s2 = "6", m_f2_s3 = "7", m_f2_s4 = "8")
+    session$setInputs(manual_accept = 1)
+    expect_equal(nrow(rv()$games), 0L)   # nichts geschrieben
+  })
+})
+
+test_that("module_matchday: ab Runde 2 Vorschau erzeugen + übernehmen (kein Schreiben bei reroll)", {
+  s <- mk_started(8, 2); s$current_round <- 2L
+  rv <- reactiveVal(s)
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(preview = 1)
+    expect_true(length(preview_rv()$pairings) > 0)
+    session$setInputs(reroll = 1)
+    expect_true(length(preview_rv()$pairings) > 0)
+    expect_equal(nrow(rv()$games), 0L)   # reroll schreibt nicht
+    session$setInputs(accept = 1)
+    g <- rv()$games[rv()$games$round == 2, ]
+    expect_equal(nrow(g), 2L)
+  })
+})
