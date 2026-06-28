@@ -15,6 +15,7 @@ module_ranking_ui <- function(id) {
 
 module_ranking_server <- function(id, state_rv) {
   moduleServer(id, function(input, output, session) {
+    ns <- session$ns
 
     ranking_data <- reactive({
       s <- state_rv()
@@ -69,13 +70,63 @@ module_ranking_server <- function(id, state_rv) {
         gr <- g[g$round == rn, ]
         tagList(h5(paste("Runde", rn)),
           lapply(seq_len(nrow(gr)), function(i) {
-            x <- gr[i, ]
-            p(sprintf("Feld %d: %s & %s  %d:%d  %s & %s", x$field,
-              player_name(s, x$t1_p1), player_name(s, x$t1_p2),
-              x$t1_points, x$t2_points,
-              player_name(s, x$t2_p1), player_name(s, x$t2_p2)))
+            x <- gr[i, ]; gid <- x$game_id
+            div(style = "display:flex;justify-content:space-between;align-items:center;padding:2px 0;",
+              span(sprintf("Feld %d: %s & %s  %d:%d  %s & %s", x$field,
+                player_name(s, x$t1_p1), player_name(s, x$t1_p2),
+                x$t1_points, x$t2_points,
+                player_name(s, x$t2_p1), player_name(s, x$t2_p2))),
+              actionButton(ns(paste0("editbtn_", gid)), "Bearbeiten",
+                class = "btn-xs btn-outline-secondary",
+                onclick = sprintf("Shiny.setInputValue('%s', %d, {priority:'event'})",
+                                  ns("edit_game"), gid)))
           }))
       }))
+    })
+
+    # Ergebnis eines beliebigen (auch abgeschlossenen) Spiels nachträglich korrigieren
+    observeEvent(input$edit_game, {
+      s <- state_rv(); gid <- as.integer(input$edit_game)
+      g <- s$games[s$games$game_id == gid, ]
+      if (nrow(g) == 0) return()
+      bo3 <- isTRUE(get_game_system_info(s$settings$game_system)$is_best_of_3)
+      num <- function(idsuf, val) numericInput(ns(idsuf), NULL,
+        value = if (is.na(val)) NA else val, min = 0, width = "80px")
+      t1 <- if (bo3) tagList(num("edit_t1s1", g$t1_set1), num("edit_t1s2", g$t1_set2), num("edit_t1s3", g$t1_set3))
+            else num("edit_t1s1", g$t1_set1)
+      t2 <- if (bo3) tagList(num("edit_t2s1", g$t2_set1), num("edit_t2s2", g$t2_set2), num("edit_t2s3", g$t2_set3))
+            else num("edit_t2s1", g$t2_set1)
+      session$userData$edit_gid <- gid
+      showModal(modalDialog(
+        title = sprintf("Ergebnis bearbeiten — Runde %d, Feld %d", g$round, g$field),
+        fluidRow(
+          column(6, strong(paste(player_name(s, g$t1_p1), "&", player_name(s, g$t1_p2))), t1),
+          column(6, strong(paste(player_name(s, g$t2_p1), "&", player_name(s, g$t2_p2))), t2)),
+        footer = tagList(modalButton("Abbrechen"),
+                         actionButton(ns("confirm_edit_game"), "Speichern", class = "btn-primary"))
+      ))
+    })
+
+    observeEvent(input$confirm_edit_game, {
+      gid <- session$userData$edit_gid
+      if (is.null(gid)) return()
+      sys <- state_rv()$settings$game_system
+      bo3 <- isTRUE(get_game_system_info(sys)$is_best_of_3)
+      rd <- function(idsuf) { v <- input[[idsuf]]; if (is.null(v)) NA_integer_ else as.integer(v) }
+      if (bo3) {
+        t1 <- c(rd("edit_t1s1"), rd("edit_t1s2"), rd("edit_t1s3"))
+        t2 <- c(rd("edit_t2s1"), rd("edit_t2s2"), rd("edit_t2s3"))
+      } else {
+        t1 <- rd("edit_t1s1"); t2 <- rd("edit_t2s1")
+      }
+      val <- if (bo3) validate_best_of_3(t1, t2, sys) else validate_single_set(t1[1], t2[1], sys)
+      if (!val$valid) { showNotification(val$message, type = "warning"); return() }
+      tryCatch({
+        state_rv(ts_edit_result(state_rv(), gid, t1, t2))
+        session$userData$edit_gid <- NULL
+        removeModal()
+        showNotification("Ergebnis aktualisiert.", type = "message")
+      }, error = function(e) showNotification(conditionMessage(e), type = "error"))
     })
   })
 }

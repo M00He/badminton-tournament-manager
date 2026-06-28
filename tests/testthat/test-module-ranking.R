@@ -34,3 +34,18 @@ test_that("module_ranking: Kategorie-Filter schränkt auf Geschlecht ein", {
     expect_equal(nrow(ranking_data()), 0L)  # keine Frauen im Testdatensatz
   })
 })
+
+test_that("module_ranking: Ergebnis nachträglich korrigieren (auch in gesperrter Runde)", {
+  s <- ts_lock_round(mk_state(), 1L)          # Runde gesperrt
+  rv <- reactiveVal(s)
+  testServer(module_ranking_server, args = list(state_rv = rv), {
+    gid <- rv()$games$game_id[1]
+    session$setInputs(edit_game = gid)        # öffnet (gedankliches) Modal, setzt edit_gid
+    session$setInputs(edit_t1s1 = 5, edit_t1s2 = 7, edit_t1s3 = NA,
+                      edit_t2s1 = 11, edit_t2s2 = 11, edit_t2s3 = NA)
+    session$setInputs(confirm_edit_game = 1)
+    g <- rv()$games[rv()$games$game_id == gid, ]
+    expect_equal(g$t1_points, 0L)             # Ergebnis umgedreht
+    expect_equal(g$t2_points, 2L)
+  })
+})

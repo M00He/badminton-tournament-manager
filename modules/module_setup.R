@@ -62,7 +62,7 @@ module_setup_server <- function(id, state_rv) {
     })
 
     observeEvent(input$remove_player, {
-      state_rv(ts_set_player_active(state_rv(), as.integer(input$remove_player), FALSE))
+      state_rv(ts_remove_player(state_rv(), as.integer(input$remove_player)))
     })
 
     observeEvent(input$start, {

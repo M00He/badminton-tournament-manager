@@ -93,3 +93,34 @@ test_that("ts_start_tournament schreibt tiebreaker_order in settings", {
   s <- ts_start_tournament(s, 5L, 1L, "best_of_3_11", tiebreaker_order = "direct_first")
   expect_equal(s$settings$tiebreaker_order, "direct_first")
 })
+
+test_that("ts_remove_player löscht ohne Spiele echt (Name wird wieder frei)", {
+  s <- ts_add_player(ts_add_player(new_tournament_state(), "Anna", "w"), "Ben", "m")
+  s <- ts_remove_player(s, 1L)
+  expect_equal(nrow(s$players), 1L)
+  expect_false("Anna" %in% s$players$name)
+  s <- ts_add_player(s, "Anna", "w")          # gleicher Name wieder anlegbar
+  expect_true("Anna" %in% s$players$name)
+})
+
+test_that("ts_remove_player setzt nur inaktiv, wenn schon gespielt", {
+  s <- make_started()
+  s <- ts_set_round_games(s, 1L, list(list(field = 1L, team1 = c(1L,2L), team2 = c(3L,4L))))
+  s <- ts_save_result(s, s$games$game_id[1], c(11L,11L), c(5L,7L))
+  s <- ts_remove_player(s, 1L)
+  expect_equal(nrow(s$players), 8L)           # nicht gelöscht
+  expect_false(s$players$active[s$players$player_id == 1L])  # nur inaktiv
+})
+
+test_that("ts_edit_result korrigiert Ergebnis auch in gesperrter Runde", {
+  s <- make_started()
+  s <- ts_set_round_games(s, 1L, list(list(field = 1L, team1 = c(1L,2L), team2 = c(3L,4L))))
+  gid <- s$games$game_id[1]
+  s <- ts_save_result(s, gid, c(11L,11L), c(5L,7L))          # 2:0
+  s <- ts_lock_round(s, 1L)
+  expect_error(ts_save_result(s, gid, c(5L,7L), c(11L,11L))) # gesperrt -> blockiert
+  s <- ts_edit_result(s, gid, c(5L,7L), c(11L,11L))          # Korrektur erlaubt
+  g <- s$games[s$games$game_id == gid, ]
+  expect_equal(g$t1_points, 0L)
+  expect_equal(g$t2_points, 2L)
+})

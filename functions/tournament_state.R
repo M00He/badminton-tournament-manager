@@ -75,6 +75,20 @@ ts_set_player_active <- function(state, player_id, active) {
   state
 }
 
+# Spieler entfernen: hat er noch kein Spiel, wird er ECHT gelöscht (Name wird wieder frei);
+# hat er bereits gespielt, wird er nur inaktiv gesetzt (Historie bleibt erhalten).
+ts_remove_player <- function(state, player_id) {
+  in_games <- player_id %in% c(state$games$t1_p1, state$games$t1_p2,
+                               state$games$t2_p1, state$games$t2_p2)
+  if (isTRUE(in_games)) {
+    idx <- which(state$players$player_id == player_id)
+    if (length(idx)) state$players$active[idx] <- FALSE
+  } else {
+    state$players <- state$players[state$players$player_id != player_id, , drop = FALSE]
+  }
+  state
+}
+
 ts_active_players <- function(state) {
   state$players[state$players$active %in% TRUE, , drop = FALSE]
 }
@@ -111,11 +125,9 @@ ts_set_round_games <- function(state, round, pairings) {
   state
 }
 
+# Ergebnis in eine Spielzeile schreiben (gemeinsame Logik für Speichern & Korrigieren).
 # t1_sets/t2_sets: Länge-3-Vektoren (Best-of-3) ODER Länge-1 (Einzelsatz).
-ts_save_result <- function(state, game_id, t1_sets, t2_sets) {
-  idx <- which(state$games$game_id == game_id)
-  if (length(idx) == 0) stop("Spiel nicht gefunden.")
-  if (state$games$locked[idx]) stop("Spiel ist gesperrt.")
+.apply_result <- function(state, idx, t1_sets, t2_sets) {
   sets <- sets_won_from_scores(t1_sets, t2_sets)
   state$games$t1_set1[idx] <- t1_sets[1]; state$games$t2_set1[idx] <- t2_sets[1]
   state$games$t1_set2[idx] <- if (length(t1_sets) >= 2) t1_sets[2] else NA_integer_
@@ -125,6 +137,20 @@ ts_save_result <- function(state, game_id, t1_sets, t2_sets) {
   state$games$t1_points[idx] <- sets[1]
   state$games$t2_points[idx] <- sets[2]
   state
+}
+
+ts_save_result <- function(state, game_id, t1_sets, t2_sets) {
+  idx <- which(state$games$game_id == game_id)
+  if (length(idx) == 0) stop("Spiel nicht gefunden.")
+  if (state$games$locked[idx]) stop("Spiel ist gesperrt.")
+  .apply_result(state, idx, t1_sets, t2_sets)
+}
+
+# Nachträgliche Korrektur eines Ergebnisses — auch in bereits abgeschlossenen (gesperrten) Runden.
+ts_edit_result <- function(state, game_id, t1_sets, t2_sets) {
+  idx <- which(state$games$game_id == game_id)
+  if (length(idx) == 0) stop("Spiel nicht gefunden.")
+  .apply_result(state, idx, t1_sets, t2_sets)
 }
 
 ts_lock_round <- function(state, round) {
