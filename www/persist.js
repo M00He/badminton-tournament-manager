@@ -24,6 +24,7 @@
   $(document).on("shiny:connected", function () {
     var saved = "";
     try { saved = localStorage.getItem(KEY) || ""; } catch (e) {}
+    // priority:"event" erzwingt das Auslösen auch bei unverändertem Wert (Resume nach Reload)
     Shiny.setInputValue("restored_state", saved, { priority: "event" });
   });
 })();

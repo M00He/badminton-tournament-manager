@@ -66,7 +66,7 @@ app_server <- function(input, output, session) {
   observeEvent(input$restore_file, {
     f <- input$restore_file
     if (is.null(f)) return()
-    js <- paste(readLines(f$datapath, warn = FALSE), collapse = "\n")
+    js <- paste(readLines(f$datapath, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
     restored <- tryCatch(state_from_json(js), error = function(e) NULL)
     if (is.null(restored)) {
       showNotification("Datei konnte nicht gelesen werden.", type = "error")
