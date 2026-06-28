@@ -15,7 +15,7 @@ files = [
   '/README.md',
   '/.vscode',
   '/.posit',
-  '/tournaments'
+  '/www'
 ]
 title = 'badminton_tournament'
 

@@ -203,7 +203,6 @@ module_matchday_server <- function(id, state_rv) {
 
     observeEvent(input$next_round, {
       tryCatch({
-        before <- state_rv()$current_round
         state_rv(ts_advance_round(state_rv()))
         if (state_rv()$status == "finished")
           showNotification("Turnier beendet! Siehe Rangliste.", type = "message")

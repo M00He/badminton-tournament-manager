@@ -9,8 +9,6 @@ source("modules/module_setup.R", encoding = "UTF-8")
 source("modules/module_ranking.R", encoding = "UTF-8")
 source("modules/module_matchday.R", encoding = "UTF-8")
 
-placeholder <- function(txt) div(style = "color:#888; font-style:italic; padding:20px;", txt)
-
 app_ui <- page_navbar(
   title = "Badminton Turnier Manager",
   theme = bs_theme(version = 5, bootswatch = "flatly"),
