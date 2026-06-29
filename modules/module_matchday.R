@@ -287,7 +287,7 @@ module_matchday_server <- function(id, state_rv) {
       tagList(lapply(seq_len(nrow(g)), function(i) {
         x <- g[i, ]; gid <- x$game_id; locked <- isTRUE(x$locked)
         num <- function(suffix, val) numericInput(ns(paste0(suffix, "_", gid)), NULL,
-          value = if (is.na(val)) NA else val, min = 0, width = "70px")
+          value = if (length(val) == 0 || is.na(val)) NULL else val, min = 0, width = "70px")
         sets_inputs <- function(side) {
           if (bo3) tagList(num(paste0(side, "s1"), x[[paste0(side, "_set1")]]),
                            num(paste0(side, "s2"), x[[paste0(side, "_set2")]]),

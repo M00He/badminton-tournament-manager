@@ -93,7 +93,7 @@ module_ranking_server <- function(id, state_rv) {
       pl <- ts_active_players(s)
       pchoices <- setNames(as.character(pl$player_id), pl$name)
       num <- function(idsuf, val) numericInput(ns(idsuf), NULL,
-        value = if (is.na(val)) NA else val, min = 0, width = "80px")
+        value = if (length(val) == 0 || is.na(val)) NULL else val, min = 0, width = "80px")
       psel <- function(idsuf, cur) selectInput(ns(idsuf), NULL, choices = pchoices, selected = as.character(cur))
       sets_in <- function(side) if (bo3)
         tagList(num(paste0("edit_", side, "s1"), g[[paste0(side, "_set1")]]),

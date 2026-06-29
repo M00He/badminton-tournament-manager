@@ -58,8 +58,11 @@ app_server <- function(input, output, session) {
   })
 
   # Persist bei jeder Änderung (nicht beim leeren Initialzustand)
+  # as.character(): state_to_json() ist class "json" — Shiny würde es sonst als rohes
+  # JSON-Objekt senden, der Browser-Handler bekäme ein Objekt statt String und localStorage
+  # speicherte "[object Object]" -> Restore scheitert -> Turnier wirkt gelöscht.
   observeEvent(state_rv(), {
-    session$sendCustomMessage("persist_state", state_to_json(state_rv()))
+    session$sendCustomMessage("persist_state", as.character(state_to_json(state_rv())))
   }, ignoreInit = TRUE)
 
   # Backup-Download — nativer downloadHandler (echter, vom Klick ausgelöster Download)
