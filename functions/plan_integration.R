@@ -97,6 +97,31 @@ replan_after_dropout <- function(state, seed = 1L) {
   NULL
 }
 
+# Re-Plan-Pfad nach einem Dropout: erzeugt die Restrunden fuer die aktiven Spieler
+# (gleiche Gesamt-Spielzahl, keine Partner-Wiederholung), an die Tabelle re-optimiert.
+.plan_remaining_dropout <- function(state, seed = 1L, n_candidates = 300L) {
+  fs <- state$settings$plan_field_sequence
+  k <- state$current_round
+  if (k > length(fs)) return(NULL)
+  active <- ts_active_players(state)$player_id
+  fs_rest <- fs[k:length(fs)]
+  info <- .dropout_play_info(state, active)
+  strength <- strength_from_ranking(state)
+  best <- NULL; best_pen <- Inf
+  for (i in seq_len(n_candidates)) {
+    cand <- generate_schedule(active, fs_rest, init_games = info$cur,
+                              forbidden_pairs = info$used, seed = seed + i)
+    if (is.null(cand)) next
+    pen <- schedule_balance_penalty(cand, strength, from_round = 1L)
+    if (pen < best_pen) { best <- cand; best_pen <- pen }
+  }
+  if (is.null(best)) return(NULL)
+  lapply(seq_along(best), function(j) {
+    rd <- best[[j]]
+    list(round = k + j - 1L, pairings = rd$games, byes = rd$byes)
+  })
+}
+
 # Alle verbleibenden Runden (current_round..R) als garantiert-gueltige, an die Tabelle
 # re-optimierte Fortsetzung. Rueckgabe: Liste von list(round, pairings, byes) oder NULL.
 plan_remaining_rounds <- function(state, seed = 1L, n_candidates = 300L) {
@@ -105,6 +130,8 @@ plan_remaining_rounds <- function(state, seed = 1L, n_candidates = 300L) {
   players <- ts_active_players(state)$player_id
   k <- state$current_round
   if (k > length(fs)) return(NULL)
+  if (isTRUE(state$settings$plan_dropout))
+    return(.plan_remaining_dropout(state, seed = seed, n_candidates = n_candidates))
   played <- played_rounds_as_plan(state)
   base <- generate_schedule(players, fs, locked_rounds = played, seed = seed)
   if (is.null(base)) return(NULL)

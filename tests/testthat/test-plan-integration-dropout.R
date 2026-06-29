@@ -65,3 +65,34 @@ test_that("replan_after_dropout: < 4 Aktive -> NULL", {
   for (id in 3:6) s <- ts_set_player_active(s, id, FALSE) # nur 2 aktiv
   expect_null(replan_after_dropout(s, seed = 1L))
 })
+
+test_that("plan_remaining_rounds: nach Dropout liefert der Re-Plan-Pfad einen gueltigen Rest", {
+  s <- mk_mid_plan()
+  s <- ts_set_player_active(s, 12L, FALSE)
+  r <- replan_after_dropout(s, seed = 1L)
+  expect_false(is.null(r))
+  s$settings$plan_field_sequence <- r$field_sequence
+  s$settings$num_rounds <- r$num_rounds
+  s$settings$plan_dropout <- TRUE
+  active <- ts_active_players(s)$player_id              # 11 Spieler
+
+  rem <- plan_remaining_rounds(s, seed = 1L, n_candidates = 40L)
+  expect_false(is.null(rem))
+  expect_equal(rem[[1]]$round, s$current_round)         # Restrunden ab current_round
+  # gespielter Praefix + alle Restrunden: keine Partner-Wiederholung, alle Aktiven gleich viele Spiele
+  rem_fmt <- lapply(rem, function(rd)
+    list(field_count = length(rd$pairings), games = rd$pairings, byes = as.integer(rd$byes)))
+  full <- c(played_rounds_as_plan(s), rem_fmt)
+  # Partner-Wiederholungen nur unter Aktiven pruefen (Aussetzer 12 hat eigene Historie)
+  pk <- function(a, b) paste(sort(c(a, b)), collapse = "|")
+  seen <- character(0); rep_found <- FALSE
+  for (rd in full) for (gm in rd$games) for (tm in list(gm$team1, gm$team2)) {
+    if (all(tm %in% active)) { key <- pk(tm[1], tm[2]); if (key %in% seen) rep_found <- TRUE; seen <- c(seen, key) }
+  }
+  expect_false(rep_found)
+  # Gesamt-Spiele je aktivem Spieler gleich
+  cnt <- setNames(integer(length(active)), as.character(active))
+  for (rd in full) for (gm in rd$games) for (p in c(gm$team1, gm$team2))
+    if (p %in% active) cnt[as.character(p)] <- cnt[as.character(p)] + 1L
+  expect_equal(length(unique(cnt)), 1L)
+})
