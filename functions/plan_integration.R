@@ -36,6 +36,65 @@ strength_from_ranking <- function(state) {
   setNames(as.numeric(n - r$rank + 1L), as.character(r$player_id))  # Rang 1 -> hoechste Staerke
 }
 
+# Gespielte Spiele je aktivem Spieler + bereits gespielte Partnerschaften unter Aktiven.
+.dropout_play_info <- function(state, active) {
+  cur <- setNames(integer(length(active)), as.character(active))
+  used <- list()
+  for (rd in played_rounds_as_plan(state)) for (gm in rd$games) {
+    quad <- c(gm$team1, gm$team2)
+    for (p in quad) if (p %in% active) cur[as.character(p)] <- cur[as.character(p)] + 1L
+    for (tm in list(gm$team1, gm$team2)) {
+      if (tm[1] %in% active && tm[2] %in% active) used[[length(used) + 1L]] <- c(tm[1], tm[2])
+    }
+  }
+  list(cur = cur, used = used)
+}
+
+# Sucht G + Rest-Felder-Folge fuer die verbliebenen Spieler, so dass alle auf gleiche
+# Gesamt-Spielzahl kommen und keine (auch keine bereits gespielte) Partnerschaft doppelt ist.
+replan_after_dropout <- function(state, seed = 1L) {
+  active <- ts_active_players(state)$player_id
+  Pp <- length(active)
+  if (Pp < 4L) return(NULL)
+  Fmax <- as.integer(state$settings$num_fields)
+  Feff <- min(Fmax, Pp %/% 4L)
+  if (Feff < 1L) return(NULL)
+  k <- state$current_round - 1L                       # gespielte Runden
+  orig_fs <- as.integer(state$settings$plan_field_sequence)
+  Gorig <- (sum(4L * orig_fs)) %/% (Pp + 1L)           # grobe Referenz (vor Austritt)
+
+  info <- .dropout_play_info(state, active)
+  cur <- info$cur
+  used_count <- setNames(integer(Pp), as.character(active))
+  for (p in info$used) {
+    used_count[as.character(p[1])] <- used_count[as.character(p[1])] + 1L
+    used_count[as.character(p[2])] <- used_count[as.character(p[2])] + 1L
+  }
+
+  best <- NULL
+  for (G in seq.int(max(cur), Pp - 1L)) {
+    total_add <- Pp * G - sum(cur)
+    if (total_add <= 0L || total_add %% 4L != 0L) next
+    if (any((G - cur) > ((Pp - 1L) - used_count))) next        # genug ungenutzte Partner?
+    Sf <- total_add %/% 4L
+    needR <- max(G - cur)
+    Rp <- max(needR, as.integer(ceiling(Sf / Feff)))
+    if (Rp < 1L || Sf < Rp) next                                # jede Runde >= 1 Feld
+    q <- Sf %/% Rp; rem <- Sf %% Rp
+    fs <- sort(c(rep(q + 1L, rem), rep(q, Rp - rem)), decreasing = TRUE)
+    if (any(fs > Feff) || any(fs < 1L)) next
+    dist <- abs(G - Gorig)
+    if (is.null(best) || dist < best$dist) best <- list(G = G, Rp = Rp, fs = fs, dist = dist)
+  }
+  if (is.null(best)) return(NULL)
+
+  sched <- generate_schedule(active, best$fs, init_games = cur,
+                             forbidden_pairs = info$used, seed = seed)
+  if (is.null(sched)) return(NULL)
+
+  list(field_sequence = c(orig_fs[seq_len(k)], best$fs), num_rounds = k + best$Rp)
+}
+
 # Alle verbleibenden Runden (current_round..R) als garantiert-gueltige, an die Tabelle
 # re-optimierte Fortsetzung. Rueckgabe: Liste von list(round, pairings, byes) oder NULL.
 plan_remaining_rounds <- function(state, seed = 1L, n_candidates = 300L) {
