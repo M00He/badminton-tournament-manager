@@ -6,6 +6,7 @@ module_matchday_ui <- function(id) {
     col_widths = c(8, 4),
     div(
       uiOutput(ns("header")),
+      uiOutput(ns("leave_box")),
       uiOutput(ns("manual_box")),
       uiOutput(ns("preview_box")),
       uiOutput(ns("full_plan")),
@@ -206,6 +207,47 @@ module_matchday_server <- function(id, state_rv) {
         preview_rv(NULL)
         showNotification("Auslosung übernommen.", type = "message")
       }, error = function(e) showNotification(conditionMessage(e), type = "error"))
+    })
+
+    output$leave_box <- renderUI({
+      s <- state_rv()
+      if (s$status != "running") return(NULL)
+      pl <- ts_active_players(s)
+      if (nrow(pl) == 0) return(NULL)
+      choices <- c("—" = "", setNames(as.character(pl$player_id), pl$name))
+      div(style = "background:#fff3f3;padding:8px;border-radius:5px;margin:8px 0;",
+        tags$small(strong("Teilnehmer scheidet aus:")),
+        div(style = "display:flex;gap:6px;align-items:center;margin-top:4px;",
+          selectInput(ns("leave_player"), NULL, choices, width = "200px"),
+          actionButton(ns("confirm_leave"), "Ausscheiden", class = "btn-sm btn-outline-danger")))
+    })
+
+    observeEvent(input$confirm_leave, {
+      s <- state_rv()
+      pid <- suppressWarnings(as.integer(input$leave_player))
+      if (is.na(pid)) { showNotification("Bitte einen Spieler wählen.", type = "warning"); return() }
+      if (nrow(cur_round_games()) > 0) {
+        showNotification("Bitte erst die laufende Runde abschließen oder verwerfen.", type = "warning"); return()
+      }
+      s <- ts_remove_player(s, pid)
+      if (identical(s$settings$schedule_mode, "plan") && s$status == "running") {
+        r <- replan_after_dropout(s, seed = 1L)
+        if (is.null(r)) {
+          s$settings$schedule_mode <- "round_by_round"
+          s$settings$plan_field_sequence <- NULL
+          s$settings$plan_dropout <- NULL
+          showNotification("Mit den verbliebenen Spielern geht kein gleichmäßiger Voraus-Plan mehr auf — die Restrunden werden rundenweise ausgelost.", type = "warning")
+        } else {
+          s$settings$plan_field_sequence <- r$field_sequence
+          s$settings$num_rounds <- r$num_rounds
+          s$settings$plan_dropout <- TRUE
+          showNotification(sprintf("Spieler ausgeschieden — neuer Restplan: %d Runden insgesamt.", r$num_rounds), type = "message")
+        }
+      } else {
+        showNotification("Spieler ausgeschieden.", type = "message")
+      }
+      preview_rv(NULL); full_plan_rv(NULL)
+      state_rv(s)
     })
 
     output$mini_ranking <- renderUI({
