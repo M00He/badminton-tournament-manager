@@ -63,3 +63,25 @@ test_that("module_matchday: Austritt im Rundenweise-Modus setzt nur inaktiv", {
     expect_null(rv()$settings$plan_dropout)              # kein Re-Plan im Rundenweise
   })
 })
+
+test_that("module_matchday: Austritt im Plan-Modus ohne gueltigen Restplan -> Fallback rundenweise", {
+  s <- new_tournament_state(name = "T")
+  for (i in seq_len(4)) s <- ts_add_player(s, paste("Spieler", i), if (i %% 2) "m" else "w")
+  fs <- field_sequence_for(4L, 1L, 3L)               # 3 Runden, 1 Feld, G=3
+  s <- ts_start_tournament(s, 99L, 99L, "best_of_3_11", "diff_first",
+                           schedule_mode = "plan", plan_field_sequence = fs)
+  d <- plan_next_round_pairings(s, seed = 1, n_candidates = 40L)
+  s <- ts_set_round_games(s, 1L, d$pairings)
+  for (gid in s$games$game_id[s$games$round == 1]) s <- ts_save_result(s, gid, c(11L,11L,NA), c(5L,7L,NA))
+  s <- ts_lock_round(s, 1L); s <- ts_advance_round(s)  # current_round = 2, nicht gelost
+  rv <- reactiveVal(s)
+  testServer(module_matchday_server, args = list(state_rv = rv), {
+    session$setInputs(leave_player = "4")
+    session$setInputs(confirm_leave = 1)
+    s2 <- rv()
+    expect_false(4L %in% ts_active_players(s2)$player_id)      # raus -> nur 3 aktiv
+    expect_equal(s2$settings$schedule_mode, "round_by_round")  # Fallback griff
+    expect_null(s2$settings$plan_field_sequence)
+    expect_null(s2$settings$plan_dropout)
+  })
+})
