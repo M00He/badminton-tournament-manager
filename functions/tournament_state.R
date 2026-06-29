@@ -122,6 +122,7 @@ ts_start_tournament <- function(state, num_rounds, num_fields, game_system,
   state$current_round <- 1L
   state$status <- "running"
   state$games <- empty_games_df()
+  state$plan_replan <- NULL
   state
 }
 
@@ -241,6 +242,19 @@ state_to_json <- function(state) {
   df
 }
 
+.as_plan_replan <- function(x) {
+  if (is.null(x) || length(x) == 0) return(NULL)
+  lapply(x, function(rd) {
+    games <- lapply(rd$games, function(gm) list(
+      field = as.integer(gm$field),
+      team1 = as.integer(gm$team1), team2 = as.integer(gm$team2)))
+    list(round = as.integer(rd$round),
+         field_count = as.integer(rd$field_count),
+         games = games,
+         byes = if (length(rd$byes)) as.integer(rd$byes) else integer(0))
+  })
+}
+
 migrate_state <- function(raw) {
   raw$players <- .as_players_df(raw$players)
   raw$games   <- .as_games_df(raw$games)
@@ -251,6 +265,7 @@ migrate_state <- function(raw) {
   if (is.null(raw$settings$schedule_mode)) raw$settings$schedule_mode <- "round_by_round"
   if (!is.null(raw$settings$plan_field_sequence))
     raw$settings$plan_field_sequence <- as.integer(raw$settings$plan_field_sequence)
+  raw$plan_replan <- .as_plan_replan(raw$plan_replan)
   raw$schema_version <- SCHEMA_VERSION
   raw
 }

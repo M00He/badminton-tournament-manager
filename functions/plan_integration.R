@@ -91,35 +91,30 @@ replan_after_dropout <- function(state, seed = 1L) {
     cc <- cands[[j]]
     sched <- generate_schedule(active, cc$fs, init_games = cur,
                                forbidden_pairs = info$used, seed = seed)
-    if (!is.null(sched))
-      return(list(field_sequence = c(orig_fs[seq_len(k)], cc$fs), num_rounds = k + cc$Rp))
+    if (!is.null(sched)) {
+      schedule <- lapply(seq_along(sched), function(m) {
+        rd <- sched[[m]]
+        list(round = k + m, field_count = rd$field_count, games = rd$games, byes = rd$byes)
+      })
+      return(list(field_sequence = c(orig_fs[seq_len(k)], cc$fs),
+                  num_rounds = k + cc$Rp, schedule = schedule))
+    }
   }
   NULL
 }
 
-# Re-Plan-Pfad nach einem Dropout: erzeugt die Restrunden fuer die aktiven Spieler
-# (gleiche Gesamt-Spielzahl, keine Partner-Wiederholung), an die Tabelle re-optimiert.
+# Re-Plan-Pfad nach einem Dropout: FOLGT dem beim Austritt erzeugten, bewiesenen Restplan
+# (state$plan_replan) — KEINE Neu-Ableitung pro Runde (sonst driften die Pausen und ein
+# Spieler kann stranden). Liefert die gespeicherten Runden ab current_round.
 .plan_remaining_dropout <- function(state, seed = 1L, n_candidates = 300L) {
-  fs <- state$settings$plan_field_sequence
+  rp <- state$plan_replan
+  if (is.null(rp) || length(rp) == 0L) return(NULL)
   k <- state$current_round
-  if (k > length(fs)) return(NULL)
-  active <- ts_active_players(state)$player_id
-  fs_rest <- fs[k:length(fs)]
-  info <- .dropout_play_info(state, active)
-  strength <- strength_from_ranking(state)
-  best <- NULL; best_pen <- Inf
-  for (i in seq_len(n_candidates)) {
-    cand <- generate_schedule(active, fs_rest, init_games = info$cur,
-                              forbidden_pairs = info$used, seed = seed + i)
-    if (is.null(cand)) next
-    pen <- schedule_balance_penalty(cand, strength, from_round = 1L)
-    if (pen < best_pen) { best <- cand; best_pen <- pen }
-  }
-  if (is.null(best)) return(NULL)
-  lapply(seq_along(best), function(j) {
-    rd <- best[[j]]
-    list(round = k + j - 1L, pairings = rd$games, byes = rd$byes)
-  })
+  out <- list()
+  for (rd in rp) if (!is.null(rd$round) && rd$round >= k)
+    out[[length(out) + 1L]] <- list(round = as.integer(rd$round), pairings = rd$games, byes = rd$byes)
+  if (length(out) == 0L) return(NULL)
+  out
 }
 
 # Alle verbleibenden Runden (current_round..R) als garantiert-gueltige, an die Tabelle

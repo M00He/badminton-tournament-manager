@@ -74,6 +74,7 @@ test_that("plan_remaining_rounds: nach Dropout liefert der Re-Plan-Pfad einen gu
   s$settings$plan_field_sequence <- r$field_sequence
   s$settings$num_rounds <- r$num_rounds
   s$settings$plan_dropout <- TRUE
+  s$plan_replan <- r$schedule
   active <- ts_active_players(s)$player_id              # 11 Spieler
 
   rem <- plan_remaining_rounds(s, seed = 1L, n_candidates = 40L)
@@ -95,4 +96,21 @@ test_that("plan_remaining_rounds: nach Dropout liefert der Re-Plan-Pfad einen gu
   for (rd in full) for (gm in rd$games) for (p in c(gm$team1, gm$team2))
     if (p %in% active) cnt[as.character(p)] <- cnt[as.character(p)] + 1L
   expect_equal(length(unique(cnt)), 1L)
+})
+
+test_that("Serialisierung: plan_replan ueberlebt JSON-Round-Trip", {
+  s <- mk_mid_plan()
+  s <- ts_set_player_active(s, 12L, FALSE)
+  r <- replan_after_dropout(s, seed = 1L)
+  expect_false(is.null(r))
+  s$settings$plan_field_sequence <- r$field_sequence
+  s$settings$num_rounds <- r$num_rounds
+  s$settings$plan_dropout <- TRUE
+  s$plan_replan <- r$schedule
+  back <- state_from_json(state_to_json(s))
+  expect_true(isTRUE(back$settings$plan_dropout))
+  expect_equal(length(back$plan_replan), length(s$plan_replan))
+  expect_equal(back$plan_replan[[1]]$round, s$plan_replan[[1]]$round)
+  expect_equal(back$plan_replan[[1]]$games[[1]]$team1, s$plan_replan[[1]]$games[[1]]$team1)
+  expect_type(back$plan_replan[[1]]$games[[1]]$team1, "integer")
 })

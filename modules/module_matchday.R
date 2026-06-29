@@ -141,7 +141,14 @@ module_matchday_server <- function(id, state_rv) {
       if (identical(s$settings$schedule_mode, "plan")) {
         rem <- plan_remaining_rounds(s, seed = seed_rv(), n_candidates = 300L)
         if (is.null(rem)) {
-          showNotification("Plan: keine gültige Fortsetzung gefunden.", type = "error"); return()
+          s2 <- s
+          s2$settings$schedule_mode <- "round_by_round"
+          s2$settings$plan_field_sequence <- NULL
+          s2$settings$plan_dropout <- NULL
+          s2$plan_replan <- NULL
+          state_rv(s2); full_plan_rv(NULL)
+          showNotification("Kein gültiger Voraus-Plan für die Restrunden — ab jetzt rundenweise auslosen.", type = "warning")
+          return()
         }
         first <- rem[[1]]
         preview_rv(list(pairings = first$pairings, byes = first$byes,
@@ -236,11 +243,13 @@ module_matchday_server <- function(id, state_rv) {
           s$settings$schedule_mode <- "round_by_round"
           s$settings$plan_field_sequence <- NULL
           s$settings$plan_dropout <- NULL
+          s$plan_replan <- NULL
           showNotification("Mit den verbliebenen Spielern geht kein gleichmäßiger Voraus-Plan mehr auf — die Restrunden werden rundenweise ausgelost.", type = "warning")
         } else {
           s$settings$plan_field_sequence <- r$field_sequence
           s$settings$num_rounds <- r$num_rounds
           s$settings$plan_dropout <- TRUE
+          s$plan_replan <- r$schedule
           showNotification(sprintf("Spieler ausgeschieden — neuer Restplan: %d Runden insgesamt.", r$num_rounds), type = "message")
         }
       } else {
