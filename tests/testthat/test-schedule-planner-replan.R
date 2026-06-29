@@ -57,3 +57,13 @@ test_that("generate_schedule ohne init/forbidden ist unveraendert (Normalfall va
   v <- verify_schedule(sched, players)
   expect_true(v$ok)
 })
+
+test_that("generate_schedule: forbidden_pairs auch OHNE init_games (Normalfall)", {
+  players <- 1:8
+  fs <- field_sequence_for(8L, 2L, 5L)             # G=5, keine Pausen
+  sched <- generate_schedule(players, fs, forbidden_pairs = list(c(1L, 2L)), seed = 2L)
+  expect_false(is.null(sched))
+  expect_false(.has_pair(sched, 1L, 2L))
+  v <- verify_schedule(sched, players)
+  expect_true(v$ok)                                 # weiterhin gleiche Spiele + gleiche Pausen
+})

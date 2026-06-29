@@ -144,6 +144,7 @@ circle_factorization <- function(P) {
 # Randomisiert-konstruktiver Generator mit "muss-noch-spielen"-Regel + Neustarts.
 # init_games (benannt player_id->Spiele) seedet games_cnt + verschiebt das Ziel G; dann gilt
 # nur "gleiche Gesamt-Spielzahl" (keine Pausen-Gleichheit). forbidden_pairs sperrt Partnerschaften.
+# Hinweis: init_games und locked_rounds nicht kombinieren (mit init_games entfaellt die Pausen-Gleichheit).
 generate_schedule <- function(players, field_sequence, locked_rounds = NULL,
                               seed = 1L, max_restarts = 2000L,
                               init_games = NULL, forbidden_pairs = NULL) {
