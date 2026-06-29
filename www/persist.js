@@ -1,5 +1,5 @@
 // Persistenz-Bridge: Turnierstand im Browser-localStorage halten + Auto-Resume.
-// (Der Backup-Download läuft über Shinys nativen downloadHandler, nicht über dieses Shim.)
+// Wird in app.R INLINE in die Seite eingebettet (kein separater /persist.js-Request -> kein 404).
 (function () {
   var KEY = "badminton_tournament_state";
 
@@ -27,7 +27,12 @@
       // priority:"event" erzwingt das Auslösen auch bei unverändertem Wert (Resume nach Reload)
       Shiny.setInputValue("restored_state", saved, { priority: "event" });
     }
+    // Auf künftige Verbindungen hören ...
     $(document).on("shiny:connected", sendRestore);
+    // ... UND sofort versuchen (race-fest: auf localhost feuert shiny:connected oft schon,
+    // bevor dieser verzögerte init() den Handler registriert hat). Shiny puffert setInputValue
+    // vor dem Connect bzw. sendet sofort danach.
+    sendRestore();
   }
 
   init();

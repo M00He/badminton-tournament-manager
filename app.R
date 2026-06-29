@@ -9,10 +9,13 @@ source("modules/module_setup.R", encoding = "UTF-8")
 source("modules/module_ranking.R", encoding = "UTF-8")
 source("modules/module_matchday.R", encoding = "UTF-8")
 
+# persist.js INLINE einbetten — robust gegen nicht-serviertes www/ (sonst /persist.js = 404).
+persist_js <- paste(readLines("www/persist.js", warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+
 app_ui <- page_navbar(
   title = "Badminton Turnier Manager",
   theme = bs_theme(version = 5, bootswatch = "flatly"),
-  header = tags$head(tags$script(src = "persist.js")),
+  header = tags$head(tags$script(HTML(persist_js))),
   nav_panel("Setup", module_setup_ui("setup")),
   nav_panel("Spieltag", module_matchday_ui("matchday")),
   nav_panel("Rangliste & Sieger", module_ranking_ui("ranking")),
