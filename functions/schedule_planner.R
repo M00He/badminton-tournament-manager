@@ -142,19 +142,35 @@ circle_factorization <- function(P) {
 }
 
 # Randomisiert-konstruktiver Generator mit "muss-noch-spielen"-Regel + Neustarts.
+# init_games (benannt player_id->Spiele) seedet games_cnt + verschiebt das Ziel G; dann gilt
+# nur "gleiche Gesamt-Spielzahl" (keine Pausen-Gleichheit). forbidden_pairs sperrt Partnerschaften.
 generate_schedule <- function(players, field_sequence, locked_rounds = NULL,
-                              seed = 1L, max_restarts = 2000L) {
+                              seed = 1L, max_restarts = 2000L,
+                              init_games = NULL, forbidden_pairs = NULL) {
   P <- length(players)
   R <- length(field_sequence)
-  G <- (sum(4L * field_sequence)) %/% P
   idx <- seq_len(P)
   id_of <- players                                 # idx -> player_id
   to_idx <- function(id) match(id, id_of)
   n_locked <- if (is.null(locked_rounds)) 0L else length(locked_rounds)
 
-  # Sättigungs-Sicherung: ohne Pausen und G = P-1 -> deterministisch via Kreis.
+  has_init <- !is.null(init_games)
+  init_vec <- integer(P)
+  if (has_init) {
+    init_vec <- as.integer(init_games[as.character(id_of)])
+    init_vec[is.na(init_vec)] <- 0L
+  }
+  G <- (sum(init_vec) + sum(4L * field_sequence)) %/% P
+
+  forb <- NULL
+  if (!is.null(forbidden_pairs) && length(forbidden_pairs)) {
+    forb <- lapply(forbidden_pairs, function(p) c(to_idx(p[1]), to_idx(p[2])))
+    forb <- forb[vapply(forb, function(p) !any(is.na(p)), logical(1))]  # nur Paare aus players
+  }
+
+  # Sättigungs-Sicherung nur im Normalfall (kein init/forbidden/locked).
   no_byes <- all(field_sequence == P %/% 4L) && (P %% 4L == 0L)
-  if (n_locked == 0L && G == P - 1L && no_byes) {
+  if (n_locked == 0L && !has_init && is.null(forb) && G == P - 1L && no_byes) {
     sc <- .schedule_from_circle(players, field_sequence)
     if (!is.null(sc)) return(sc)
   }
@@ -162,7 +178,10 @@ generate_schedule <- function(players, field_sequence, locked_rounds = NULL,
   set.seed(seed)
   for (attempt in seq_len(max_restarts)) {
     partner_used <- matrix(FALSE, P, P)
-    games_cnt <- integer(P); byes_cnt <- integer(P)
+    if (!is.null(forb)) for (p in forb) {
+      partner_used[p[1], p[2]] <- partner_used[p[2], p[1]] <- TRUE
+    }
+    games_cnt <- init_vec; byes_cnt <- integer(P)
     rounds <- vector("list", R); ok <- TRUE
 
     if (n_locked > 0L) {
@@ -216,7 +235,9 @@ generate_schedule <- function(players, field_sequence, locked_rounds = NULL,
       rounds[[r]] <- list(field_count = f, games = games, byes = id_of[sitout])
     }
 
-    if (ok && all(games_cnt == G) && all(byes_cnt == (R - G))) return(rounds)
+    games_ok <- all(games_cnt == G)
+    byes_ok  <- has_init || all(byes_cnt == (R - G))   # Pausen-Gleichheit nur im Normalfall
+    if (ok && games_ok && byes_ok) return(rounds)
   }
   NULL
 }
