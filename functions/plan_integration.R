@@ -71,7 +71,7 @@ replan_after_dropout <- function(state, seed = 1L) {
     used_count[as.character(p[2])] <- used_count[as.character(p[2])] + 1L
   }
 
-  best <- NULL
+  cands <- list()
   for (G in seq.int(max(cur), Pp - 1L)) {
     total_add <- Pp * G - sum(cur)
     if (total_add <= 0L || total_add %% 4L != 0L) next
@@ -83,16 +83,18 @@ replan_after_dropout <- function(state, seed = 1L) {
     q <- Sf %/% Rp; rem <- Sf %% Rp
     fs <- sort(c(rep(q + 1L, rem), rep(q, Rp - rem)), decreasing = TRUE)
     if (any(fs > Feff) || any(fs < 1L)) next
-    dist <- abs(G - Gorig)
-    if (is.null(best) || dist < best$dist) best <- list(G = G, Rp = Rp, fs = fs, dist = dist)
+    cands[[length(cands) + 1L]] <- list(G = G, Rp = Rp, fs = fs, dist = abs(G - Gorig))
   }
-  if (is.null(best)) return(NULL)
-
-  sched <- generate_schedule(active, best$fs, init_games = cur,
-                             forbidden_pairs = info$used, seed = seed)
-  if (is.null(sched)) return(NULL)
-
-  list(field_sequence = c(orig_fs[seq_len(k)], best$fs), num_rounds = k + best$Rp)
+  if (length(cands) == 0L) return(NULL)
+  ord <- order(vapply(cands, function(cc) cc$dist, numeric(1)))
+  for (j in ord) {
+    cc <- cands[[j]]
+    sched <- generate_schedule(active, cc$fs, init_games = cur,
+                               forbidden_pairs = info$used, seed = seed)
+    if (!is.null(sched))
+      return(list(field_sequence = c(orig_fs[seq_len(k)], cc$fs), num_rounds = k + cc$Rp))
+  }
+  NULL
 }
 
 # Alle verbleibenden Runden (current_round..R) als garantiert-gueltige, an die Tabelle

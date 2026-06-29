@@ -41,6 +41,23 @@ test_that("replan_after_dropout: 12->11 liefert gueltigen gleich-viele-Spiele-Re
   expect_equal(length(r$field_sequence), r$num_rounds)
   # die gespielten 2 Runden behalten ihre Felderzahl
   expect_equal(r$field_sequence[1:2], s$settings$plan_field_sequence[1:2])
+
+  # die zwei harten Garantien auf dem erzeugten Rest pruefen
+  active <- ts_active_players(s)$player_id
+  info <- .dropout_play_info(s, active)
+  fs_rest <- r$field_sequence[s$current_round:r$num_rounds]
+  rem <- generate_schedule(active, fs_rest, init_games = info$cur, forbidden_pairs = info$used, seed = 1L)
+  expect_false(is.null(rem))
+  full <- c(played_rounds_as_plan(s), rem)
+  cnt <- setNames(integer(length(active)), as.character(active))
+  pk <- function(a, b) paste(sort(c(a, b)), collapse = "|"); seen <- character(0); rep_found <- FALSE
+  for (rd in full) for (gm in rd$games) {
+    for (p in c(gm$team1, gm$team2)) if (p %in% active) cnt[as.character(p)] <- cnt[as.character(p)] + 1L
+    for (tm in list(gm$team1, gm$team2)) if (all(tm %in% active)) {
+      key <- pk(tm[1], tm[2]); if (key %in% seen) rep_found <- TRUE; seen <- c(seen, key) }
+  }
+  expect_equal(length(unique(cnt)), 1L)   # alle Aktiven gleich viele Gesamt-Spiele
+  expect_false(rep_found)                  # keine Partner-Wiederholung
 })
 
 test_that("replan_after_dropout: < 4 Aktive -> NULL", {
